@@ -1,82 +1,40 @@
-# QuizTinker 📚
+# QuizTinker
 
-QuizTinker is a high-performance, AI-integrated quiz platform designed for academic environments. It features automated quiz generation, strict per-tab session isolation, and a robust late submission system with automated penalties.
+QuizTinker is an AI-integrated quiz platform for academic use. It includes automated quiz generation, per-tab session isolation, and late submission penalties.
 
-## ✨ Key Features
+## Tech Stack
 
-- **🤖 AI-Powered Generation**: Instantly generate high-quality quiz items using advanced AI integration.
-- **🛡️ Academic Rigor**: Built-in support for late submission penalties, time limits, and attempt management.
-- **🔄 Progressive Auto-Save**: Real-time progress tracking ensures student data is never lost, even during connectivity issues.
-- **🔐 Per-Tab Isolation**: Advanced session management using `sessionStorage` and Token Authentication allows multiple concurrent sessions in different tabs.
-- **🖌️ Neo-Brutalist Design**: A bold, modern UI/UX designed to be both visually striking and highly functional.
-- **📊 Real-time Analytics**: Detailed performance reports for students and management tools for instructors.
+- Frontend: React.js
+- Backend: Django, Django Rest Framework
+- Database: PostgreSQL
+- Authentication: Token-based
 
-## 🛠️ Tech Stack
+## Getting Started
 
-- **Frontend**: React.js, Lucide React, Axios.
-- **Backend**: Django, Django Rest Framework (DRF).
-- **Database**: PostgreSQL (Production-ready).
-- **Security**: DRF Token Authentication.
+### Prerequisites
+- Node.js (v18+)
+- Python (3.10+)
+- PostgreSQL
 
----
+### Backend Setup
 
-## 🚀 Getting Started
+1. Go to the `django_backend` directory.
+2. Create and activate a virtual environment.
+3. Install dependencies: `pip install -r requirements.txt`.
+4. Copy `.env.example` to `.env` and configure your database.
+5. Run migrations: `python manage.py migrate`.
+6. Start server: `python manage.py runserver`.
 
-### 📋 Prerequisites
-- **Node.js** (v18+)
-- **Python** (3.10+)
-- **PostgreSQL**
+### Frontend Setup
 
-### 🏗️ Backend Setup (Django)
+1. Go to the `frontend` directory.
+2. Install dependencies: `npm install`.
+3. Create a `.env` file with `REACT_APP_API_URL=http://localhost:8000`.
+4. Start development server: `npm start`.
 
-1. **Navigate to the backend directory:**
-   ```powershell
-   cd django_backend
-   ```
-2. **Setup Virtual Environment:**
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
-3. **Install dependencies:**
-   ```powershell
-   pip install -r requirements.txt
-   ```
-4. **Environment Configuration:**
-   - Copy `.env.example` to `.env`.
-   - Update `DATABASE_URL` with your PostgreSQL credentials.
-5. **Initialize Database:**
-   ```powershell
-   python manage.py migrate
-   ```
-6. **Start Server:**
-   ```powershell
-   python manage.py runserver
-   ```
+## Academic Project Disclaimer
 
-### 💻 Frontend Setup (React)
-
-1. **Navigate to the frontend directory:**
-   ```powershell
-   cd frontend
-   ```
-2. **Install dependencies:**
-   ```powershell
-   npm install
-   ```
-3. **Configure API URL:**
-   - Create a `.env` file in the `frontend` directory:
-     `REACT_APP_API_URL=http://localhost:8000`
-4. **Start Development Server:**
-   ```powershell
-   npm start
-   ```
-
----
-
-## 📝 Academic Project Disclaimer
-
-QuizTinker was developed as a Final Requirement for the **Web Systems and Technologies 2** course at the **Technological Institute of the Philippines - Manila**. It is intended for academic demonstration purposes.
+QuizTinker was developed as a Final Requirement for the Web Systems and Technologies 2 course at the Technological Institute of the Philippines - Manila. It is intended for academic demonstration purposes.
 
 ## 👥 Development Team
 - **Ivan Roxas** (Lead Developer)
