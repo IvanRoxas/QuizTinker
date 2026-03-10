@@ -32,13 +32,6 @@ QuizTinker is an AI-integrated quiz platform for academic use. It includes autom
 3. Create a `.env` file with `REACT_APP_API_URL=http://localhost:8000`.
 4. Start development server: `npm start`.
 
-## Academic Project Disclaimer
-
 QuizTinker was developed as a Final Requirement for the Web Systems and Technologies 2 course at the Technological Institute of the Philippines - Manila. It is intended for academic demonstration purposes.
 
-## 👥 Development Team
-- **Ivan Roxas** (Lead Developer)
-- **Team Members** (See Footer for full list)
-
----
 © 2026 QuizTinker Project
