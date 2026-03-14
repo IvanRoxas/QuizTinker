@@ -1,0 +1,41 @@
+/* ═══════════════════════════════════════════════════
+   EmptyState Component – Neo-Brutalist Styling
+   ═══════════════════════════════════════════════════ */
+.empty-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: #FAFAFA; /* Light background */
+    border: 2px solid var(--charcoal, #1A1A1A);
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+    margin: 2rem 0;
+    box-shadow: 6px 6px 0 var(--charcoal, #1A1A1A);
+    min-height: 200px;
+}
+
+.empty-state-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--blue, #5A82E6);
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.5px;
+}
+
+.empty-state-desc {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--charcoal, #1A1A1A);
+    opacity: 0.8;
+    margin: 0;
+    max-width: 400px;
+}
+
+.empty-state-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+}

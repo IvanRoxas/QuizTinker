@@ -1,0 +1,161 @@
+/* ═══════════════════════════════════════════════════
+   QuizCard – Neo-Brutalist Card with Image Background
+   ═══════════════════════════════════════════════════ */
+
+.quiz-card-neo {
+    background: #ffffff;
+    border: 2px solid var(--charcoal);
+    border-radius: 1rem;
+    box-shadow: 4px 4px 0px var(--charcoal);
+    overflow: hidden;
+    max-width: 400px;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+    height: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    width: 100%;
+}
+
+.quiz-card-neo:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 7px 7px 0px var(--charcoal);
+}
+
+/* Image section */
+.quiz-card-image-wrapper {
+    height: 120px;
+    width: 100%;
+    border-bottom: 2px solid var(--charcoal);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.quiz-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.quiz-card-fallback-bg {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #FFD6A5, #CAFFBF, #A8DADC, #BDB2FF);
+}
+
+/* Body section */
+.quiz-card-body {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    padding: 12px;
+    gap: 1rem;
+    background: #ffffff;
+}
+
+.quiz-card-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: var(--charcoal);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.quiz-card-author {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--charcoal);
+    opacity: 0.6;
+    margin-bottom: -0.5rem;
+    /* Bring deadline closer if it exists */
+}
+
+.quiz-card-deadline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--blue);
+    opacity: 0.9;
+}
+
+/* Neo-Brutalist Attempt Badge Overlay */
+.quiz-attempt-badge-neo {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 5;
+    background: var(--yellow);
+    border: 2px solid var(--charcoal);
+    border-radius: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 3px 3px 0 var(--charcoal);
+}
+
+.badge-count-neo {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--charcoal);
+    line-height: 1;
+}
+
+.badge-label-neo {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--charcoal);
+    opacity: 0.8;
+}
+
+.quiz-card-action-btn {
+    width: 100%;
+    margin-top: auto;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    border-radius: 12px;
+    border: 2px solid var(--charcoal);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--charcoal);
+    transition: all 0.15s;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.quiz-card-action-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--charcoal);
+}
+
+.quiz-card-action-btn.take-quiz,
+.quiz-card-action-btn.manage-quiz {
+    background: var(--orange);
+    color: var(--white);
+}
+
+.quiz-card-action-btn.take-quiz:hover,
+.quiz-card-action-btn.manage-quiz:hover {
+    background: #e6952d;
+}
+
+.quiz-card-action-btn.view-results {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.quiz-card-action-btn.view-results:hover {
+    background: #4a72d6;
+}
+
+/* Badges removed in modern redesign */
