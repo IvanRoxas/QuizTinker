@@ -1,0 +1,606 @@
+/* === Public User Profile Page === */
+
+.user-profile-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+}
+
+.user-profile-main {
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 3rem;
+    max-width: 900px;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    margin: 0 auto;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.user-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    border-bottom: 2px solid var(--charcoal);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.user-profile-header h1 {
+    color: var(--blue);
+    font-weight: 900;
+    font-size: 2rem;
+    margin: 0;
+}
+
+.up-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--white);
+    border: 2px solid var(--charcoal);
+    border-radius: 99px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: var(--charcoal);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.up-back-btn:hover {
+    background: var(--charcoal);
+    color: var(--white);
+}
+
+.up-accept-btn,
+.up-reject-btn {
+    padding: 0.6rem 1.5rem;
+    font-weight: 900;
+    font-size: 0.95rem;
+    border: 3px solid #000;
+    border-radius: 99px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0px #000;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 0.5px;
+}
+
+.up-accept-btn:hover:not(:disabled),
+.up-reject-btn:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #000;
+}
+
+.up-accept-btn:active:not(:disabled),
+.up-reject-btn:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0px #000;
+}
+
+.up-accept-btn {
+    background: #5A82E6;
+    /* Blue */
+    color: #fff;
+}
+
+.up-reject-btn {
+    background: #F5A63A;
+    /* Orange */
+    color: #1E1E1E;
+}
+
+.user-profile-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 0.5rem 0.75rem 4rem 0.5rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.user-profile-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Cards */
+.up-card {
+    background: var(--white);
+    border: 3px solid #1E1E1E;
+    border-radius: 30px;
+    padding: 2.5rem;
+    position: relative;
+    box-shadow: 6px 6px 0px 0px #1E1E1E;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.up-banner-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.up-banner-placeholder {
+    color: var(--charcoal);
+    opacity: 0.15;
+}
+
+/* Details */
+.up-details-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.up-avatar-container {
+    flex-shrink: 0;
+}
+
+.up-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--orange);
+    object-fit: cover;
+    box-shadow: 0 4px 15px rgba(245, 166, 58, 0.3);
+}
+
+.up-avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--charcoal);
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--charcoal);
+}
+
+.up-name-info h2 {
+    color: var(--charcoal);
+    font-weight: 900;
+    font-size: 1.8rem;
+    margin: 0 0 0.3rem 0;
+}
+
+.up-name-info p {
+    color: #64B5F6;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+/* Info grid */
+.up-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+}
+
+.up-info-item.up-full-width {
+    grid-column: 1 / -1;
+}
+
+.up-info-item label {
+    display: block;
+    color: #64B5F6;
+    font-size: 0.95rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    text-transform: capitalize;
+    letter-spacing: 0.5px;
+}
+
+.up-info-value {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--charcoal);
+    border-bottom: 2px dashed rgba(0, 0, 0, 0.1);
+}
+
+.up-bio {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* Action Area (no card wrapper) */
+.up-action-area {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0.5rem 0;
+}
+
+.up-remove-friend-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #E60000;
+    color: var(--white);
+    border: 3px solid #1E1E1E;
+    border-radius: 99px;
+    padding: 1rem 2.5rem;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 10px rgba(230, 0, 0, 0.3);
+}
+
+.up-remove-friend-btn:hover {
+    background: #FF0000;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(255, 0, 0, 0.4);
+}
+
+.up-remove-friend-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Friends List Card on Public Profile */
+.up-friends-card {
+    padding: 2rem 2.5rem;
+}
+
+.up-friends-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.up-friends-header h3 {
+    color: var(--blue);
+    font-weight: 900;
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.up-friends-count {
+    background: var(--blue);
+    color: var(--white);
+    font-weight: 900;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.7rem;
+    border-radius: 99px;
+}
+
+.up-friends-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem 1rem;
+}
+
+.up-friend-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    border-radius: 20px;
+    background: #F8F9FA;
+    border: 2px solid #EAEAEA;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    gap: 1rem;
+}
+
+.up-friend-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.up-friend-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 3px solid var(--charcoal);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.up-friend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.up-friend-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: 100%;
+}
+
+.up-friend-name {
+    font-weight: 900;
+    font-size: 0.95rem;
+    color: var(--charcoal);
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.up-friend-status {
+    font-size: 0.75rem;
+    color: var(--charcoal);
+    opacity: 0.5;
+    font-weight: 700;
+}
+
+.up-friend-actions {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.up-view-btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: 99px;
+    background: #D0E5FF;
+    color: var(--blue);
+    border: 2px solid var(--charcoal);
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px var(--charcoal);
+    transition: all 0.1s;
+}
+
+.up-friend-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.up-friend-item:active .up-view-btn {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px var(--charcoal);
+}
+
+/* Pagination Controls */
+.friends-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 2px dashed rgba(0, 0, 0, 0.08);
+}
+
+.friends-page-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--charcoal);
+    background: var(--white);
+    color: var(--charcoal);
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 3px 3px 0px var(--charcoal);
+}
+
+.friends-page-btn:hover:not(:disabled) {
+    background: var(--blue);
+    color: var(--white);
+    border-color: var(--blue);
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 0px var(--charcoal);
+}
+
+.friends-page-btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px var(--charcoal);
+}
+
+.friends-page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.friends-page-indicator {
+    font-weight: 900;
+    font-size: 0.9rem;
+    color: var(--charcoal);
+    min-width: 50px;
+    text-align: center;
+}
+
+.up-no-friends {
+    text-align: center;
+    color: var(--charcoal);
+    opacity: 0.4;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 1.5rem;
+    margin: 0;
+}
+
+.up-add-friend-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--blue);
+    color: var(--white);
+    border: 3px solid #1E1E1E;
+    border-radius: 99px;
+    padding: 1rem 2.5rem;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 10px rgba(59, 96, 196, 0.3);
+}
+
+.up-add-friend-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(59, 96, 196, 0.5);
+}
+
+.up-pending-btn {
+    background: #FFF3E0;
+    color: var(--orange);
+    border: 3px solid var(--orange);
+    border-radius: 99px;
+    padding: 1rem 2.5rem;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.up-respond-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+
+
+/* Loading */
+.user-profile-loading {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--charcoal);
+    font-weight: 700;
+}
+
+.user-profile-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mutual Friends Badge */
+.up-mutual-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 2rem;
+    color: var(--blue);
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.up-mutual-card strong {
+    font-weight: 900;
+}
+
+/* Skeleton reuse from Dashboard.css */
+.skeleton-pulse {
+    animation: skeletonPulse 1.4s ease-in-out infinite;
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background-size: 200% 100%;
+}
+
+@keyframes skeletonPulse {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Delete modal reuse (for remove friend confirmation) */
+.delete-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.delete-modal-content {
+    background: var(--white);
+    border: 3px solid #1E1E1E;
+    border-radius: 24px;
+    padding: 2.5rem;
+    max-width: 450px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 8px 8px 0px 0px #1E1E1E;
+}
+
+.delete-modal-content h2 {
+    margin: 0 0 1rem;
+    color: var(--charcoal);
+    font-weight: 900;
+}
+
+.delete-modal-content p {
+    margin: 0 0 2rem;
+    color: var(--charcoal);
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.delete-modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn-delete-cancel {
+    padding: 0.75rem 2rem;
+    border: 2px solid var(--charcoal);
+    border-radius: 99px;
+    background: var(--white);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.btn-delete-confirm {
+    padding: 0.75rem 2rem;
+    border: 2px solid #E53935;
+    border-radius: 99px;
+    background: #E53935;
+    color: var(--white);
+    font-weight: 800;
+    cursor: pointer;
+}
