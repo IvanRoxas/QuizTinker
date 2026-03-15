@@ -15,8 +15,13 @@
 }
 
 @keyframes fadeInBackdrop {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* Modal card */
@@ -36,12 +41,25 @@
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.quiz-modal::-webkit-scrollbar { width: 4px; }
-.quiz-modal::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+.quiz-modal::-webkit-scrollbar {
+    width: 4px;
+}
+
+.quiz-modal::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
 
 /* Close button */
 .modal-close-btn {
@@ -55,7 +73,10 @@
     opacity: 0.5;
     transition: opacity 0.15s;
 }
-.modal-close-btn:hover { opacity: 1; }
+
+.modal-close-btn:hover {
+    opacity: 1;
+}
 
 /* ── Delete Button ── */
 .delete-wrapper {
@@ -105,7 +126,8 @@
     gap: 0.5rem;
 }
 
-.confirm-yes, .confirm-no {
+.confirm-yes,
+.confirm-no {
     flex: 1;
     padding: 0.4rem;
     border: 2px solid var(--charcoal);
@@ -125,7 +147,8 @@
     color: var(--charcoal);
 }
 
-.confirm-yes:hover, .confirm-no:hover {
+.confirm-yes:hover,
+.confirm-no:hover {
     transform: translate(-1px, -1px);
     box-shadow: 2px 2px 0 var(--charcoal);
 }
@@ -138,8 +161,15 @@
 }
 
 @keyframes slideUpPopup {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .footer-delete-wrapper {
@@ -193,9 +223,20 @@
     opacity: 0.5;
 }
 
-.ai-placeholder-icon { font-size: 3rem; }
-.ai-placeholder p { font-weight: 800; font-size: 1.1rem; margin: 0; }
-.ai-placeholder span { font-weight: 600; font-size: 0.9rem; }
+.ai-placeholder-icon {
+    font-size: 3rem;
+}
+
+.ai-placeholder p {
+    font-weight: 800;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.ai-placeholder span {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
 
 /* ── Modal Body (two-column) ── */
 .modal-body {
@@ -209,15 +250,22 @@
     padding-right: 0.5rem;
 }
 
-.scrollable-modal-body::-webkit-scrollbar { width: 6px; }
-.scrollable-modal-body::-webkit-scrollbar-thumb { background: var(--charcoal); border-radius: 10px; }
+.scrollable-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollable-modal-body::-webkit-scrollbar-thumb {
+    background: var(--charcoal);
+    border-radius: 10px;
+}
 
 .modal-form-left {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    padding-bottom: 2rem; /* Fix: ensures Take Quiz button hover isn't clipped */
+    padding-bottom: 2rem;
+    /* Fix: ensures Take Quiz button hover isn't clipped */
 }
 
 /* ... existing ... */
@@ -228,11 +276,12 @@
     padding: 1rem;
     border: 2px solid var(--charcoal);
     border-radius: 1rem;
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.05);
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
 }
 
 .checkbox-group {
-    justify-content: center;
+    display: flex;
+    align-items: center;
 }
 
 .neo-checkbox-label {
@@ -300,8 +349,14 @@
     padding-right: 0.5rem;
 }
 
-.friends-checklist::-webkit-scrollbar { width: 4px; }
-.friends-checklist::-webkit-scrollbar-thumb { background: var(--charcoal); border-radius: 10px; }
+.friends-checklist::-webkit-scrollbar {
+    width: 4px;
+}
+
+.friends-checklist::-webkit-scrollbar-thumb {
+    background: var(--charcoal);
+    border-radius: 10px;
+}
 
 .friend-check-item {
     display: flex;
@@ -360,7 +415,8 @@
     color: var(--charcoal);
 }
 
-.neo-loading, .no-friends-msg {
+.neo-loading,
+.no-friends-msg {
     text-align: center;
     padding: 1rem;
     font-weight: 700;
@@ -393,8 +449,10 @@
 }
 
 .title-group-nested {
-    flex: 0 1 auto; /* Allow title to shrink/grow as needed */
-    min-width: 0;   /* Allow truncation if needed */
+    flex: 0 1 auto;
+    /* Allow title to shrink/grow as needed */
+    min-width: 0;
+    /* Allow truncation if needed */
 }
 
 .title-input {
@@ -439,7 +497,8 @@
 .required-asterisk {
     position: absolute;
     top: 0.3rem;
-    right: -12px; /* Move slightly out to not overlap title */
+    right: -12px;
+    /* Move slightly out to not overlap title */
     color: #E53935;
     font-weight: 900;
     font-size: 1.2rem;
@@ -450,6 +509,13 @@
     display: grid;
     grid-template-columns: 1.2fr 0.9fr 1.1fr;
     gap: 1rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    text-align: left;
 }
 
 .form-group label {
@@ -488,9 +554,22 @@
     min-height: 100px;
 }
 
+/* ── Select / Dropdown Fix ── */
+.neo-input,
+.neo-select {
+    height: 40px;
+    padding: 0 12px;
+    box-sizing: border-box;
+    line-height: 40px;
+    /* vertically center text to match height */
+}
+
 .neo-select {
     cursor: pointer;
     appearance: auto;
+    -webkit-appearance: menulist;
+    /* Let the browser handle its own internal padding for the arrow */
+    padding-right: 0;
 }
 
 /* ── Image Preview ── */
@@ -576,12 +655,14 @@
     background: var(--blue);
     color: var(--white);
     border-color: var(--blue);
-    min-width: 150px; /* Stability */
+    min-width: 150px;
+    /* Stability */
     text-align: center;
 }
 
 .continue-btn {
-    min-width: 150px; /* Stability */
+    min-width: 150px;
+    /* Stability */
     text-align: center;
 }
 
@@ -614,14 +695,16 @@
     background: #4CAF50;
     color: var(--white);
     border-color: #4CAF50;
-    min-width: 140px; /* Stability */
+    min-width: 140px;
+    /* Stability */
     justify-content: center;
 }
 
 .manage-btn {
     background: var(--cream);
     color: var(--charcoal);
-    min-width: 160px; /* Stability */
+    min-width: 160px;
+    /* Stability */
     justify-content: center;
 }
 
@@ -716,7 +799,8 @@
 }
 
 .take-quiz-cta-massive {
-    background-color: #f97316; /* Bright Orange */
+    background-color: #f97316;
+    /* Bright Orange */
     color: white;
     font-size: 1.25rem;
     font-weight: 900;
@@ -753,9 +837,11 @@
     .modal-body {
         flex-direction: column;
     }
+
     .modal-form-right {
         align-self: center;
     }
+
     .form-row-three {
         grid-template-columns: 1fr;
     }

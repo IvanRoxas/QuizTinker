@@ -22,6 +22,14 @@ export const createQuiz = async (data) => {
 };
 
 /**
+ * Generate a new quiz using AI. Accepts a JSON object.
+ */
+export const aiGenerateQuiz = async (data) => {
+    const res = await axiosClient.post('/api/quizzes/ai-generate/', data);
+    return res.data; // Will return { id: quiz_id, questions: [...] } based on spec
+};
+
+/**
  * Update an existing quiz.  Accepts a FormData object (PATCH-style partial update).
  */
 export const updateQuiz = async (quizId, data) => {
