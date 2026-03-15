@@ -5,3 +5,4 @@ Pillow>=10.0
 django-environ
 psycopg2-binary
 django-axes
+google-generativeai==0.8.6

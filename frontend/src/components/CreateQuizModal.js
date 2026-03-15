@@ -2,16 +2,16 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, X, Trash2, Settings, ExternalLink, Search, Check, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { createQuiz, updateQuiz } from '../api/quizApi';
+import { createQuiz, updateQuiz, aiGenerateQuiz } from '../api/quizApi';
 import axiosClient from '../api/axiosClient';
 import './CreateQuizModal.css';
- 
+
 // Helper to convert UTC ISO string to local YYYY-MM-DDTHH:mm for datetime-local input
 const formatToLocalDatetime = (isoString) => {
     if (!isoString) return '';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
-    
+
     const pad = (n) => n.toString().padStart(2, '0');
     const Y = date.getFullYear();
     const M = pad(date.getMonth() + 1);
@@ -32,6 +32,9 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const [attemptsAllowed, setAttemptsAllowed] = useState(1);
     const [availability, setAvailability] = useState('private');
     const [description, setDescription] = useState('');
+    const [promptText, setPromptText] = useState('');
+    const [category, setCategory] = useState('GenEd');
+    const [specialization, setSpecialization] = useState('Filipino');
     const [generationType, setGenerationType] = useState('manual');
     const [deadline, setDeadline] = useState('');
     const [allowLateSubmissions, setAllowLateSubmissions] = useState(false);
@@ -93,6 +96,9 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             setAttemptsAllowed(1);
             setAvailability('private');
             setDescription('');
+            setPromptText('');
+            setCategory('GenEd');
+            setSpecialization('Filipino');
             setGenerationType('manual');
             setActiveTab('manual');
             setDeadline('');
@@ -161,7 +167,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             fd.append('availability', availability);
             fd.append('status', statusValue);
             fd.append('generation_type', activeTab);
-            
+
             if (deadline) {
                 fd.append('deadline', new Date(deadline).toISOString());
             }
@@ -204,11 +210,11 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             const targetStatus = (isEditing && quizData.status === 'published') ? 'published' : 'draft';
             const data = buildUpdateData(targetStatus);
             const saved = await (isEditing ? updateQuiz(quizData.id, data) : createQuiz(data));
-            
-            const successMsg = isEditing 
+
+            const successMsg = isEditing
                 ? (quizData.status === 'published' ? 'Changes saved!' : 'Draft updated!')
                 : 'Draft saved!';
-                
+
             showToast(successMsg);
             onSaved && onSaved(saved, isEditing ? 'update' : 'create');
             onClose();
@@ -225,19 +231,36 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         if (!title.trim()) return;
         setContinuing(true);
         try {
-            const data = buildUpdateData('draft');
-            let saved;
-            if (isEditing) {
-                saved = await updateQuiz(quizData.id, data);
+            if (activeTab === 'ai') {
+                const aiData = {
+                    title: title.trim(),
+                    subtitle: subtitle.trim(),
+                    attempts_allowed: attemptsAllowed,
+                    availability: availability,
+                    deadline: deadline ? new Date(deadline).toISOString() : null,
+                    category: category,
+                    specialization: specialization,
+                    prompt: promptText
+                };
+                const generatedData = await aiGenerateQuiz(aiData);
+                onSaved && onSaved(generatedData, 'create');
+                onClose();
+                navigate(`/quizzes/edit/${generatedData.id}`);
             } else {
-                saved = await createQuiz(data);
+                const data = buildUpdateData('draft');
+                let saved;
+                if (isEditing) {
+                    saved = await updateQuiz(quizData.id, data);
+                } else {
+                    saved = await createQuiz(data);
+                }
+                onSaved && onSaved(saved, isEditing ? 'update' : 'create');
+                onClose();
+                navigate(`/quizzes/edit/${saved.id}`);
             }
-            onSaved && onSaved(saved, isEditing ? 'update' : 'create');
-            onClose();
-            navigate(`/quizzes/edit/${saved.id}`);
         } catch (err) {
             console.error(err);
-            showToast(err.response?.data?.message || 'Failed to save.', 'error');
+            showToast(err.response?.data?.message || 'Failed to save/generate.', 'error');
         } finally {
             setContinuing(false);
         }
@@ -326,322 +349,357 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 )}
 
                 {/* ── Tab Content ── */}
-                {activeTab === 'ai' ? ( // Use activeTab state
-                    <div className="ai-placeholder">
-                        <div className="ai-placeholder-icon"></div>
-                        <p>AI Quiz Generation</p>
-                        <span>Coming soon…</span>
-                    </div>
-                ) : (
-                    <>
-                        <div className="modal-body scrollable-modal-body">
-                            {/* Left Column — Inputs */}
-                            <div className="modal-form-left">
-                                {/* Title & Status Badge */}
-                                <div className="modal-title-container">
-                                    <div className="form-group title-group-nested">
-                                        {viewOnly ? (
-                                            <h1 className="view-title">{title || 'Untitled'}</h1>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                className="title-input"
-                                                placeholder="Untitled"
-                                                value={title}
-                                                onChange={(e) => setTitle(e.target.value)}
-                                            />
-                                        )}
-                                        {!viewOnly && <span className="required-asterisk">*</span>}
-                                    </div>
-                                    
-                                    {/* Status Badge */}
-                                    <div className={`status-badge ${quizData?.status || 'draft'}`}>
-                                        {quizData?.status === 'published' ? 'Published' : 'Draft'}
-                                    </div>
-                                </div>
-
-                                {/* Author Context (View Mode Only) */}
-                                {viewOnly && authorName && (
-                                    <div className="author-context-row">
-                                        <div className="author-mini-avatar">
-                                            {authorAvatar ? (
-                                                <img src={authorAvatar} alt="" />
-                                            ) : (
-                                                <UserIcon size={14} />
-                                            )}
-                                        </div>
-                                        <span className="author-tagline">Created by <strong>@{authorName}</strong></span>
-                                    </div>
+                <div className="modal-body scrollable-modal-body">
+                    {/* Left Column — Inputs */}
+                    <div className="modal-form-left">
+                        {/* Title & Status Badge */}
+                        <div className="modal-title-container">
+                            <div className="form-group title-group-nested">
+                                {viewOnly ? (
+                                    <h1 className="view-title">{title || 'Untitled'}</h1>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="title-input"
+                                        placeholder="Untitled"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                    />
                                 )}
-
-                                {/* Row: Subtitle, Attempts, Availability (Admin Settings - Hidden in View Mode) */}
-                                {!viewOnly && (
-                                    <div className="form-row-three">
-                                        <div className="form-group">
-                                            <label>Subtitle</label>
-                                            <input
-                                                type="text"
-                                                className="neo-input"
-                                                placeholder="Enter sub-header here..."
-                                                value={subtitle}
-                                                onChange={(e) => setSubtitle(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Attempts</label>
-                                            <select
-                                                className="neo-select"
-                                                value={attemptsAllowed}
-                                                onChange={(e) => setAttemptsAllowed(Number(e.target.value))}
-                                            >
-                                                {[1, 2, 3, 4, 5, 10].map(n => (
-                                                    <option key={n} value={n}>{n}</option>
-                                                ))}
-                                                <option value={0}>Unlimited</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Availability</label>
-                                            <select
-                                                className="neo-select"
-                                                value={availability}
-                                                onChange={(e) => setAvailability(e.target.value)}
-                                            >
-                                                <option value="private">Private</option>
-                                                <option value="all_friends">All Friends</option>
-                                                <option value="specific_friends">Specific Friends</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Meta Pills (View Mode Only) */}
-                                {viewOnly && (
-                                    <div className="view-meta-pills">
-                                        <div className="view-meta-pill">
-                                            Due: {deadline ? new Date(deadline).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'No deadline'}
-                                        </div>
-                                        <div className="view-meta-pill">
-                                            Attempts: {attemptsAllowed === 0 ? 'Unlimited' : attemptsAllowed}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* LMS Row: Deadline & Late Toggle (Hidden in View Mode) */}
-                                {!viewOnly && (
-                                    <div className="form-row-two lms-row">
-                                        <div className="form-group">
-                                            <label>Deadline ({tzAbbr})</label>
-                                            <input 
-                                                type="datetime-local" 
-                                                className="neo-input"
-                                                value={deadline}
-                                                onChange={(e) => setDeadline(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="form-group checkbox-group">
-                                            <label className="neo-checkbox-label">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={allowLateSubmissions}
-                                                    onChange={(e) => setAllowLateSubmissions(e.target.checked)}
-                                                />
-                                                Allow Late Submissions
-                                            </label>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Targeted Sharing Interface */}
-                                {availability === 'specific_friends' && !viewOnly && (
-                                    <div className="friend-sharing-interface">
-                                        <label>Select Friends to Share With</label>
-                                        <div className="neo-search-box">
-                                            <Search size={16} />
-                                            <input 
-                                                type="text" 
-                                                placeholder="Search friends..." 
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="friends-checklist">
-                                            {loadingFriends ? (
-                                                <div className="neo-loading">Loading friends...</div>
-                                            ) : filteredFriends.length > 0 ? (
-                                                filteredFriends.map(friend => (
-                                                    <div 
-                                                        key={friend.id} 
-                                                        className={`friend-check-item ${selectedFriends.includes(friend.id) ? 'checked' : ''}`}
-                                                        onClick={() => handleToggleFriend(friend.id)}
-                                                    >
-                                                        <div className="neo-checkbox-custom">
-                                                            {selectedFriends.includes(friend.id) && <Check size={14} />}
-                                                        </div>
-                                                        <img 
-                                                            src={friend.avatar_url 
-                                                                ? (friend.avatar_url.startsWith('http') ? friend.avatar_url : `http://localhost:8000${friend.avatar_url}`) 
-                                                                : '/default-avatar.png'
-                                                            } 
-                                                            alt={friend.name || friend.username || 'User'} 
-                                                        />
-                                                         <span>{friend.name || friend.username}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="no-friends-msg">No friends found.</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Description */}
-                                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    {!viewOnly && <label>Description</label>}
-                                    {viewOnly ? (
-                                        <p className="view-description-text">
-                                            {description || 'No description provided.'}
-                                        </p>
-                                    ) : (
-                                        <textarea
-                                            className="neo-textarea"
-                                            placeholder="Write a description for your quiz..."
-                                            value={description}
-                                            onChange={(e) => setDescription(e.target.value)}
-                                            style={{ flex: 1 }}
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Massive CTA Button (View Mode Only) */}
-                                {viewOnly && (
-                                    <button 
-                                        className="take-quiz-cta-massive"
-                                        onClick={() => {
-                                            onClose();
-                                            navigate(`/quizzes/${quizData.id}/intro`);
-                                        }}
-                                    >
-                                        Take Quiz Now
-                                    </button>
-                                )}
-
+                                {!viewOnly && <span className="required-asterisk">*</span>}
                             </div>
 
-                            {/* Right Column — Image */}
-                            <div className="modal-form-right">
-                                <div
-                                    className={`image-preview-box ${viewOnly ? 'view-only-image' : ''}`}
-                                    style={imagePreview ? { backgroundImage: `url(${imagePreview})` } : {}}
-                                    onClick={() => !viewOnly && fileRef.current?.click()}
-                                >
-                                    {!imagePreview && <div className="image-placeholder-gradient" />}
-                                    {!viewOnly && (
-                                        <button className="camera-btn" type="button">
-                                            <Camera size={22} />
-                                        </button>
-                                    )}
-                                </div>
-                                <input
-                                    ref={fileRef}
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
-                                    onChange={handleImageSelect}
-                                />
+                            {/* Status Badge */}
+                            <div className={`status-badge ${quizData?.status || 'draft'}`}>
+                                {quizData?.status === 'published' ? 'Published' : 'Draft'}
                             </div>
                         </div>
 
-                        {/* ── Action Buttons ── */}
-                        <div className="modal-actions">
-                            {/* Trash Icon (Only when editing, moved to bottom left) */}
-                            {isAuthor && isEditing && (
-                                <div className="footer-delete-wrapper">
-                                    <button
-                                        className="modal-delete-btn"
-                                        onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-                                        title="Delete Quiz"
-                                    >
-                                        <Trash2 size={24} />
-                                    </button>
-                                    {showDeleteConfirm && (
-                                        <div className="neo-confirm-popup popup-up">
-                                            <p>Delete this quiz permanently?</p>
-                                            <div className="confirm-actions">
-                                                <button
-                                                    className="confirm-yes"
-                                                    onClick={handleDelete}
-                                                    disabled={deleting}
-                                                >
-                                                    {deleting ? 'Deleting...' : 'Yes'}
-                                                </button>
-                                                <button
-                                                    className="confirm-no"
-                                                    onClick={() => setShowDeleteConfirm(false)}
-                                                >
-                                                    No
-                                                </button>
-                                            </div>
-                                        </div>
+                        {/* Author Context (View Mode Only) */}
+                        {viewOnly && authorName && (
+                            <div className="author-context-row">
+                                <div className="author-mini-avatar">
+                                    {authorAvatar ? (
+                                        <img src={authorAvatar} alt="" />
+                                    ) : (
+                                        <UserIcon size={14} />
                                     )}
+                                </div>
+                                <span className="author-tagline">Created by <strong>@{authorName}</strong></span>
+                            </div>
+                        )}
+
+                        {/* Row: Subtitle, Attempts, Availability (Admin Settings - Hidden in View Mode) */}
+                        {!viewOnly && (
+                            <div className="form-row-three">
+                                <div className="form-group">
+                                    <label>Subtitle</label>
+                                    <input
+                                        type="text"
+                                        className="neo-input"
+                                        placeholder="Enter sub-header here..."
+                                        value={subtitle}
+                                        onChange={(e) => setSubtitle(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Attempts</label>
+                                    <select
+                                        className="neo-select"
+                                        value={attemptsAllowed}
+                                        onChange={(e) => setAttemptsAllowed(Number(e.target.value))}
+                                    >
+                                        {[1, 2, 3, 4, 5, 10].map(n => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                        <option value={0}>Unlimited</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Availability</label>
+                                    <select
+                                        className="neo-select"
+                                        value={availability}
+                                        onChange={(e) => setAvailability(e.target.value)}
+                                    >
+                                        <option value="private">Private</option>
+                                        <option value="all_friends">All Friends</option>
+                                        <option value="specific_friends">Specific Friends</option>
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Meta Pills (View Mode Only) */}
+                        {viewOnly && (
+                            <div className="view-meta-pills">
+                                <div className="view-meta-pill">
+                                    Due: {deadline ? new Date(deadline).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'No deadline'}
+                                </div>
+                                <div className="view-meta-pill">
+                                    Attempts: {attemptsAllowed === 0 ? 'Unlimited' : attemptsAllowed}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* LMS Row: Deadline & Late Toggle (Hidden in View Mode) */}
+                        {!viewOnly && (
+                            <div className="form-row-two lms-row">
+                                <div className="form-group">
+                                    <label>Deadline ({tzAbbr})</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="neo-input"
+                                        value={deadline}
+                                        onChange={(e) => setDeadline(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group checkbox-group">
+                                    <label className="neo-checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={allowLateSubmissions}
+                                            onChange={(e) => setAllowLateSubmissions(e.target.checked)}
+                                        />
+                                        Allow Late Submissions
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Targeted Sharing Interface */}
+                        {availability === 'specific_friends' && !viewOnly && (
+                            <div className="friend-sharing-interface">
+                                <label>Select Friends to Share With</label>
+                                <div className="neo-search-box">
+                                    <Search size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search friends..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                                <div className="friends-checklist">
+                                    {loadingFriends ? (
+                                        <div className="neo-loading">Loading friends...</div>
+                                    ) : filteredFriends.length > 0 ? (
+                                        filteredFriends.map(friend => (
+                                            <div
+                                                key={friend.id}
+                                                className={`friend-check-item ${selectedFriends.includes(friend.id) ? 'checked' : ''}`}
+                                                onClick={() => handleToggleFriend(friend.id)}
+                                            >
+                                                <div className="neo-checkbox-custom">
+                                                    {selectedFriends.includes(friend.id) && <Check size={14} />}
+                                                </div>
+                                                <img
+                                                    src={friend.avatar_url
+                                                        ? (friend.avatar_url.startsWith('http') ? friend.avatar_url : `http://localhost:8000${friend.avatar_url}`)
+                                                        : '/default-avatar.png'
+                                                    }
+                                                    alt={friend.name || friend.username || 'User'}
+                                                />
+                                                <span>{friend.name || friend.username}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="no-friends-msg">No friends found.</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Category & Specialization (AI Mode Only) */}
+                        {!viewOnly && activeTab === 'ai' && (
+                            <div className="form-row-two">
+                                <div className="form-group">
+                                    <label>Category</label>
+                                    <select
+                                        className="neo-select"
+                                        value={category}
+                                        onChange={(e) => setCategory(e.target.value)}
+                                    >
+                                        <option value="GenEd">GenEd</option>
+                                        <option value="ProfEd">ProfEd</option>
+                                        <option value="Specialization">Specialization</option>
+                                    </select>
+                                </div>
+                                {category === 'Specialization' && (
+                                    <div className="form-group">
+                                        <label>Specialization Topic</label>
+                                        <select
+                                            className="neo-select"
+                                            value={specialization}
+                                            onChange={(e) => setSpecialization(e.target.value)}
+                                        >
+                                            <option value="Filipino">Filipino</option>
+                                            <option value="Mathematics">Mathematics</option>
+                                            <option value="English">English</option>
+                                            <option value="Science">Science</option>
+                                            <option value="Social Studies">Social Studies</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Description or Prompt */}
+                        <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            {!viewOnly && <label>{activeTab === 'ai' ? 'Prompt / Description' : 'Description'}</label>}
+                            {viewOnly ? (
+                                <p className="view-description-text">
+                                    {description || 'No description provided.'}
+                                </p>
+                            ) : activeTab === 'ai' ? (
+                                <textarea
+                                    className="neo-textarea"
+                                    placeholder="Generate LET exam questions about Filipino grammar focusing on pang-uri and pang-abay."
+                                    value={promptText}
+                                    onChange={(e) => setPromptText(e.target.value)}
+                                    style={{ flex: 1 }}
+                                />
+                            ) : (
+                                <textarea
+                                    className="neo-textarea"
+                                    placeholder="Write a description for your quiz..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    style={{ flex: 1 }}
+                                />
+                            )}
+                        </div>
+
+                        {/* Massive CTA Button (View Mode Only) */}
+                        {viewOnly && (
+                            <button
+                                className="take-quiz-cta-massive"
+                                onClick={() => {
+                                    onClose();
+                                    navigate(`/quizzes/${quizData.id}/intro`);
+                                }}
+                            >
+                                Take Quiz Now
+                            </button>
+                        )}
+
+                    </div>
+
+                    {/* Right Column — Image */}
+                    <div className="modal-form-right">
+                        <div
+                            className={`image-preview-box ${viewOnly ? 'view-only-image' : ''}`}
+                            style={imagePreview ? { backgroundImage: `url(${imagePreview})` } : {}}
+                            onClick={() => !viewOnly && fileRef.current?.click()}
+                        >
+                            {!imagePreview && <div className="image-placeholder-gradient" />}
+                            {!viewOnly && (
+                                <button className="camera-btn" type="button">
+                                    <Camera size={22} />
+                                </button>
+                            )}
+                        </div>
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={handleImageSelect}
+                        />
+                    </div>
+                </div>
+
+                {/* ── Action Buttons ── */}
+                <div className="modal-actions">
+                    {/* Trash Icon (Only when editing, moved to bottom left) */}
+                    {isAuthor && isEditing && (
+                        <div className="footer-delete-wrapper">
+                            <button
+                                className="modal-delete-btn"
+                                onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+                                title="Delete Quiz"
+                            >
+                                <Trash2 size={24} />
+                            </button>
+                            {showDeleteConfirm && (
+                                <div className="neo-confirm-popup popup-up">
+                                    <p>Delete this quiz permanently?</p>
+                                    <div className="confirm-actions">
+                                        <button
+                                            className="confirm-yes"
+                                            onClick={handleDelete}
+                                            disabled={deleting}
+                                        >
+                                            {deleting ? 'Deleting...' : 'Yes'}
+                                        </button>
+                                        <button
+                                            className="confirm-no"
+                                            onClick={() => setShowDeleteConfirm(false)}
+                                        >
+                                            No
+                                        </button>
+                                    </div>
                                 </div>
                             )}
-
-                            <div className="modal-actions-right">
-                                {!viewOnly && (
-                                    isEditing ? (
-                                        <>
-                                            <button
-                                                className="manage-btn"
-                                                onClick={() => navigate(`/quizzes/edit/${quizData.id}`)}
-                                                title="Manage Quiz Content"
-                                            >
-                                                <Settings size={18} />
-                                                <span>Manage Content</span>
-                                            </button>
-
-                                            {quizData.status === 'draft' && (
-                                                <button
-                                                    className="publish-btn"
-                                                    onClick={handlePublish}
-                                                    disabled={isTitleEmpty || isBusy}
-                                                >
-                                                    <ExternalLink size={18} />
-                                                    <span>Publish Quiz</span>
-                                                </button>
-                                            )}
-
-                                            <button
-                                                className="draft-btn"
-                                                onClick={handleSaveDraft}
-                                                disabled={isTitleEmpty || isBusy}
-                                            >
-                                                {savingDraft ? 'Saving...' : (quizData?.status === 'published' ? 'Save Changes' : 'Save Draft')}
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                className="draft-btn"
-                                                onClick={handleSaveDraft}
-                                                disabled={isTitleEmpty || isBusy}
-                                            >
-                                                {savingDraft ? 'Saving...' : 'Save as Draft'}
-                                            </button>
-                                            <button
-                                                className="continue-btn"
-                                                onClick={handleContinue}
-                                                disabled={isTitleEmpty || isBusy}
-                                            >
-                                                {continuing ? 'Processing...' : (activeTab === 'ai' ? 'Next' : 'Continue')}
-                                            </button>
-                                        </>
-                                    )
-                                )}
-                            </div>
                         </div>
-                    </>
-                )}
+                    )}
+
+                    <div className="modal-actions-right">
+                        {!viewOnly && (
+                            isEditing ? (
+                                <>
+                                    <button
+                                        className="manage-btn"
+                                        onClick={() => navigate(`/quizzes/edit/${quizData.id}`)}
+                                        title="Manage Quiz Content"
+                                    >
+                                        <Settings size={18} />
+                                        <span>Manage Content</span>
+                                    </button>
+
+                                    {quizData.status === 'draft' && (
+                                        <button
+                                            className="publish-btn"
+                                            onClick={handlePublish}
+                                            disabled={isTitleEmpty || isBusy}
+                                        >
+                                            <ExternalLink size={18} />
+                                            <span>Publish Quiz</span>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        className="draft-btn"
+                                        onClick={handleSaveDraft}
+                                        disabled={isTitleEmpty || isBusy}
+                                    >
+                                        {savingDraft ? 'Saving...' : (quizData?.status === 'published' ? 'Save Changes' : 'Save Draft')}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {activeTab !== 'ai' && (
+                                        <button
+                                            className="draft-btn"
+                                            onClick={handleSaveDraft}
+                                            disabled={isTitleEmpty || isBusy}
+                                        >
+                                            {savingDraft ? 'Saving...' : 'Save as Draft'}
+                                        </button>
+                                    )}
+                                    <button
+                                        className="continue-btn"
+                                        onClick={handleContinue}
+                                        disabled={isTitleEmpty || isBusy || (activeTab === 'ai' && !promptText.trim())}
+                                    >
+                                        {continuing ? 'Processing...' : (activeTab === 'ai' ? 'Next' : 'Continue')}
+                                    </button>
+                                </>
+                            )
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
