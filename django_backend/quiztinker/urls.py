@@ -11,6 +11,7 @@ urlpatterns = [
     path(os.getenv('ADMIN_URL', 'qt-secret-portal/'), admin.site.urls),
     path('api/', include('accounts.urls')),
     path('api/', include('quizzes.urls')),
+    path('api/chatbot/', include('chatbot.urls')),
 ]
 
 # Serve media files during development

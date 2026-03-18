@@ -71,6 +71,8 @@ class Quiz(models.Model):
         choices=GENERATION_TYPE_CHOICES,
         default='manual',
     )
+    category = models.CharField(max_length=50, blank=True, null=True, help_text="For AI generated quizzes")
+    specialization = models.CharField(max_length=100, blank=True, null=True, help_text="For AI generated quizzes")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
