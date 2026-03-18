@@ -12,6 +12,7 @@ import QuizIntroPage from './pages/Quizzes/Student/QuizIntroPage';
 import TakeQuizPage from './pages/Quizzes/Student/TakeQuizPage';
 import QuizResultsPage from './pages/Quizzes/Student/QuizResultsPage';
 import QuizCompletionPage from './pages/Quizzes/Student/QuizCompletionPage';
+import ChatPage from './pages/ChatPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import GlobalLayout from './components/GlobalLayout';
 import { AuthProvider } from './context/AuthContext';
@@ -119,6 +120,16 @@ function App() {
               <ProtectedRoute>
                 <GlobalLayout>
                   <QuizResultsPage />
+                </GlobalLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <GlobalLayout>
+                  <ChatPage />
                 </GlobalLayout>
               </ProtectedRoute>
             }

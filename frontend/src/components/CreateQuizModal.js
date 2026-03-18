@@ -21,10 +21,17 @@ const formatToLocalDatetime = (isoString) => {
     return `${Y}-${M}-${D}T${h}:${m}`;
 };
 
+const truncateFilename = (name, maxLength = 30) => {
+    if (!name) return '';
+    if (name.length <= maxLength) return name;
+    return name.slice(0, maxLength) + '...';
+};
+
 const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const navigate = useNavigate();
     const { showToast, user } = useAuth();
     const fileRef = useRef(null);
+    const referenceFileRef = useRef(null);
 
     // ── Form state (persisted across Manual/AI tab switches) ──
     const [title, setTitle] = useState('');
@@ -41,6 +48,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const [selectedFriends, setSelectedFriends] = useState([]);
     const [authorName, setAuthorName] = useState('');
     const [authorAvatar, setAuthorAvatar] = useState('');
+    const [referenceFiles, setReferenceFiles] = useState([]);
 
     // Targeted Sharing UI state
     const [friends, setFriends] = useState([]);
@@ -75,6 +83,9 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             setAttemptsAllowed(quizData.attempts_allowed ?? 1);
             setAvailability(quizData.availability || 'private');
             setDescription(quizData.description || '');
+            setPromptText(quizData.description || '');
+            setCategory(quizData.category || 'GenEd');
+            setSpecialization(quizData.specialization || 'Filipino');
             setGenerationType(quizData.generation_type || 'manual');
             setActiveTab(quizData.generation_type || 'manual');
             setDeadline(formatToLocalDatetime(quizData.deadline));
@@ -108,6 +119,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             setImagePreview(null);
             setAuthorName('');
             setAuthorAvatar('');
+            setReferenceFiles([]);
         }
     }, [quizData, isOpen]);
 
@@ -156,6 +168,45 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         setImagePreview(URL.createObjectURL(file));
     };
 
+    // ── Reference File Handling ──
+    const handleReferenceFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+
+        let validFiles = [];
+        let limitReached = false;
+
+        for (let file of files) {
+            if (referenceFiles.length + validFiles.length >= 2) {
+                limitReached = true;
+                break;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showToast(`${file.name} exceeds the 10MB size limit.`, 'error');
+                continue;
+            }
+            validFiles.push(file);
+        }
+
+        if (validFiles.length > 0) {
+            setReferenceFiles(prev => [...prev, ...validFiles].slice(0, 2));
+        }
+
+        if (limitReached && validFiles.length === 0) {
+            showToast('Maximum of 2 reference files reached.', 'error');
+        } else if (referenceFiles.length + validFiles.length >= 2) {
+            showToast('Maximum of 2 reference files reached.', 'success');
+        }
+
+        if (referenceFileRef.current) {
+            referenceFileRef.current.value = '';
+        }
+    };
+
+    const removeReferenceFile = (index) => {
+        setReferenceFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     // ── Build FormData ──
     const buildUpdateData = (statusValue) => {
         if (imageFile) {
@@ -167,6 +218,12 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             fd.append('availability', availability);
             fd.append('status', statusValue);
             fd.append('generation_type', activeTab);
+            if (activeTab === 'ai') {
+                fd.append('category', category);
+                if (category === 'Specialization') {
+                    fd.append('specialization', specialization);
+                }
+            }
 
             if (deadline) {
                 fd.append('deadline', new Date(deadline).toISOString());
@@ -190,7 +247,9 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 availability: availability,
                 status: statusValue,
                 generation_type: activeTab,
-                allow_late_submissions: allowLateSubmissions
+                allow_late_submissions: allowLateSubmissions,
+                ...(activeTab === 'ai' && { category }),
+                ...(activeTab === 'ai' && category === 'Specialization' && { specialization }),
             };
             if (deadline) {
                 data.deadline = new Date(deadline).toISOString();
@@ -232,16 +291,33 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         setContinuing(true);
         try {
             if (activeTab === 'ai') {
-                const aiData = {
-                    title: title.trim(),
-                    subtitle: subtitle.trim(),
-                    attempts_allowed: attemptsAllowed,
-                    availability: availability,
-                    deadline: deadline ? new Date(deadline).toISOString() : null,
-                    category: category,
-                    specialization: specialization,
-                    prompt: promptText
-                };
+                let aiData;
+                if (referenceFiles.length > 0) {
+                    aiData = new FormData();
+                    aiData.append('title', title.trim());
+                    aiData.append('subtitle', subtitle.trim());
+                    aiData.append('attempts_allowed', attemptsAllowed);
+                    aiData.append('availability', availability);
+                    if (deadline) aiData.append('deadline', new Date(deadline).toISOString());
+                    aiData.append('category', category);
+                    aiData.append('specialization', specialization);
+                    aiData.append('prompt', promptText);
+
+                    referenceFiles.forEach((file, idx) => {
+                        aiData.append(`reference_file_${idx + 1}`, file);
+                    });
+                } else {
+                    aiData = {
+                        title: title.trim(),
+                        subtitle: subtitle.trim(),
+                        attempts_allowed: attemptsAllowed,
+                        availability: availability,
+                        deadline: deadline ? new Date(deadline).toISOString() : null,
+                        category: category,
+                        specialization: specialization,
+                        prompt: promptText
+                    };
+                }
                 const generatedData = await aiGenerateQuiz(aiData);
                 onSaved && onSaved(generatedData, 'create');
                 onClose();
@@ -322,17 +398,17 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const isTitleEmpty = !title.trim();
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal-backdrop" onClick={() => !isBusy && onClose()}>
             <div className="quiz-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Close button */}
-                <button className="modal-close-btn" onClick={onClose} title="Close">
+                <button className="modal-close-btn" onClick={() => !isBusy && onClose()} title="Close" disabled={isBusy}>
                     <X size={20} />
                 </button>
 
 
                 {/* Generation Type Toggle (Hidden when editing) */}
                 {!isEditing && (
-                    <div className="generation-type-toggle">
+                    <div className="generation-type-toggle" style={isBusy ? { pointerEvents: 'none', opacity: 0.6 } : {}}>
                         <button
                             className={`gen-type-btn ${activeTab === 'manual' ? 'active' : ''}`}
                             onClick={() => setActiveTab('manual')}
@@ -349,7 +425,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 )}
 
                 {/* ── Tab Content ── */}
-                <div className="modal-body scrollable-modal-body">
+                <div className="modal-body scrollable-modal-body" style={isBusy ? { pointerEvents: 'none', opacity: 0.6 } : {}}>
                     {/* Left Column — Inputs */}
                     <div className="modal-form-left">
                         {/* Title & Status Badge */}
@@ -553,13 +629,83 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                     {description || 'No description provided.'}
                                 </p>
                             ) : activeTab === 'ai' ? (
-                                <textarea
-                                    className="neo-textarea"
-                                    placeholder="Generate LET exam questions about Filipino grammar focusing on pang-uri and pang-abay."
-                                    value={promptText}
-                                    onChange={(e) => setPromptText(e.target.value)}
-                                    style={{ flex: 1 }}
-                                />
+                                <>
+                                    <textarea
+                                        className="neo-textarea"
+                                        placeholder="Generate LET exam questions about Filipino grammar focusing on pang-uri and pang-abay."
+                                        value={promptText}
+                                        onChange={(e) => setPromptText(e.target.value)}
+                                        style={{ flex: 1, minHeight: '120px' }}
+                                    />
+
+                                    <div className="reference-files-container" style={{ flexShrink: 0, marginTop: '1rem', padding: '1rem', border: '2px dashed var(--charcoal)', borderRadius: '0.75rem', background: '#fafafa' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: referenceFiles.length > 0 ? '1rem' : '0' }}>
+                                            <label style={{ margin: 0, fontWeight: 800 }}>Reference Files (Max 2, 10MB each)</label>
+                                            {referenceFiles.length === 0 && (
+                                                <button
+                                                    type="button"
+                                                    style={{ padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer' }}
+                                                    onClick={() => referenceFileRef.current?.click()}
+                                                >
+                                                    Upload Reference File
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <input
+                                            type="file"
+                                            ref={referenceFileRef}
+                                            style={{ display: 'none' }}
+                                            accept=".pdf,.docx,.pptx,.txt"
+                                            multiple
+                                            onChange={handleReferenceFileSelect}
+                                        />
+
+                                        {referenceFiles.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {referenceFiles.map((file, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'white', border: '2px solid var(--charcoal)', borderRadius: '0.5rem' }}>
+                                                        <span
+                                                            style={{
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: 700,
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                flex: 1
+                                                            }}
+                                                        >
+                                                            Reference File {idx + 1}: {truncateFilename(file.name)}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeReferenceFile(idx)}
+                                                            style={{ background: 'transparent', border: 'none', color: '#E53935', cursor: 'pointer', padding: '0.2rem' }}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {referenceFiles.length > 0 && referenceFiles.length < 2 && (
+                                            <button
+                                                type="button"
+                                                style={{ marginTop: '0.75rem', padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer', width: '100%' }}
+                                                onClick={() => referenceFileRef.current?.click()}
+                                            >
+                                                Upload Another File
+                                            </button>
+                                        )}
+
+                                        {referenceFiles.length >= 2 && (
+                                            <div style={{ marginTop: '1rem', fontSize: '0.85rem', fontWeight: 800, color: 'var(--charcoal)', padding: '0.5rem', background: '#FFD6A5', border: '2px solid var(--charcoal)', borderRadius: '0.5rem', textAlign: 'center' }}>
+                                                Maximum of 2 reference files reached.
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                             ) : (
                                 <textarea
                                     className="neo-textarea"

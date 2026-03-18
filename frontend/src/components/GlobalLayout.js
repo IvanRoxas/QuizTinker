@@ -44,7 +44,7 @@ const Sidebar = ({ isToggled, handleLogout, setIsToggled }) => {
         { icon: <UserIcon size={24} />, label: 'Profile', route: '/profile' },
         { icon: <Bell size={24} />, label: 'Notifications', route: '/notifications' },
         { icon: <BookOpen size={24} />, label: 'Quizzes', route: '/quizzes' },
-        { icon: <MessageSquare size={24} />, label: 'Chat with A.I.' },
+        { icon: <MessageSquare size={24} />, label: 'Chat with A.I.', route: '/chat' },
     ];
 
     return (

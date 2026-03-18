@@ -25,7 +25,11 @@ export const createQuiz = async (data) => {
  * Generate a new quiz using AI. Accepts a JSON object.
  */
 export const aiGenerateQuiz = async (data) => {
-    const res = await axiosClient.post('/api/quizzes/ai-generate/', data);
+    const res = await axiosClient.post('/api/quizzes/ai-generate/', data, {
+        headers: {
+            'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
+        },
+    });
     return res.data; // Will return { id: quiz_id, questions: [...] } based on spec
 };
 
