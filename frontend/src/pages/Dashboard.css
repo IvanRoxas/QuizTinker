@@ -194,7 +194,8 @@ body {
     padding: 2.5rem 3rem;
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 1rem;
+    /* Reduced gap to bring components closer */
     overflow-y: auto;
     height: 100vh;
     box-sizing: border-box;
@@ -270,84 +271,95 @@ body {
 /* Removed .header-search styles as it was removed from DOM */
 
 /* Banner */
-.ranking-banner {
-    background: linear-gradient(135deg, rgba(90, 130, 230, 0.8) 0%, rgba(200, 100, 200, 0.8) 50%, rgba(245, 166, 58, 0.8) 100%);
-    border: 3px solid var(--charcoal);
-    border-radius: 2rem;
-    padding: 3rem 4rem;
+.dashboard-stats-grid {
     display: flex;
-    justify-content: space-between;
+    gap: 1.5rem;
+    margin: 1.5rem 0 1rem 0;
+    flex-wrap: wrap;
+    justify-content: center; /* Centering tile row on screen */
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 150px;
+    max-width: 150px;
+    aspect-ratio: 1 / 1;
+    border: 4px solid var(--charcoal);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 8px 8px 0 var(--charcoal);
-}
-
-.banner-content {
-    position: relative;
-    z-index: 2;
-}
-
-.banner-content h2 {
+    box-shadow: var(--shadow-md);
     color: var(--white);
-    font-size: 2.2rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stat-card.marigold {
+    background-color: #F5A63A;
+}
+
+.stat-card.blue {
+    background-color: #5A82E6;
+}
+
+.stat-card .stat-number {
+    font-size: 3.5rem;
+    /* Scaled up numbers */
     font-weight: 900;
-    margin: 0 0 1.5rem 0;
-    line-height: 1.3;
-    letter-spacing: 2px;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.15);
 }
 
-.view-ranks-btn {
-    background: var(--orange);
-    color: var(--white);
-    padding: 1rem 2.5rem;
-    border: 3px solid var(--charcoal);
-    border-radius: 99px;
+.stat-card .stat-label {
+    font-size: 0.9rem;
+    /* Scaled up labels */
     font-weight: 900;
-    font-size: 1.1rem;
-    cursor: pointer;
-    box-shadow: 4px 4px 0 var(--charcoal);
-    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 1;
+    color: #ffffff;
+    text-align: center;
+    padding: 0 0.5rem;
 }
 
-.view-ranks-btn:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--charcoal);
-}
-
-.view-ranks-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0 0 0 var(--charcoal);
-}
-
-.banner-graphics {
-    position: absolute;
-    right: 5%;
-    top: 50%;
-    transform: translateY(-50%);
+/* Tip Banner below Stats */
+.dashboard-tip-banner {
+    background: #ffffff;
+    border: 2.5px solid var(--charcoal);
+    border-radius: 10px;
+    padding: 0.5rem 0.8rem; /* More compact */
     display: flex;
-    align-items: flex-end;
-    gap: 1rem;
+    align-items: center;
+    gap: 0.8rem;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
 }
 
-.star {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 6rem;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+.tip-label {
+    background: #F5A63A;
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.7rem; /* Smaller font */
+    padding: 0.25rem 0.45rem; /* Smaller padding */
+    border-radius: 6px;
+    border: 1.5px solid var(--charcoal);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.star-1 {
-    font-size: 4rem;
-    margin-bottom: 2rem;
-}
-
-.star-2 {
-    font-size: 7rem;
-    margin-bottom: 3rem;
-}
-
-.star-3 {
-    font-size: 5rem;
+.tip-text {
+    font-size: 0.9rem; /* Smaller font */
+    font-weight: 700;
+    color: var(--charcoal);
+    margin: 0;
 }
 
 
@@ -407,13 +419,13 @@ body {
     font-weight: 800;
     box-sizing: border-box;
     outline: none;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     transition: all 0.2s;
 }
 
 .dash-main-content .quiz-inline-search input:focus {
     transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 /* Filter dropdown */
@@ -433,19 +445,19 @@ body {
     font-weight: 800;
     font-size: 1rem;
     cursor: pointer;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     transition: all 0.1s;
     color: var(--charcoal);
 }
 
 .dash-main-content .filter-btn-neo:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 5px 5px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .dash-main-content .filter-btn-neo:active {
     transform: translate(2px, 2px);
-    box-shadow: 0 0 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 .dash-main-content .filter-dropdown-menu {
@@ -455,7 +467,7 @@ body {
     background: var(--white);
     border: 2px solid var(--charcoal);
     border-radius: 1rem;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     overflow: hidden;
     z-index: 100;
     min-width: 180px;
@@ -556,7 +568,7 @@ body {
     align-items: center !important;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 6px 6px 0 var(--charcoal) !important;
+    box-shadow: var(--shadow-md);
     /* Thicker shadow like QuizCard */
     height: auto !important;
     min-height: 280px !important;
@@ -569,7 +581,7 @@ body {
 
 .create-draft-card-neo:hover {
     transform: translate(-3px, -3px);
-    box-shadow: 9px 9px 0 var(--charcoal) !important;
+    box-shadow: var(--shadow-lg);
 }
 
 .create-draft-card-content {
@@ -1249,6 +1261,131 @@ body {
     .quiz-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+/* Clickable Stat card pointer */
+.stat-card.clickable {
+    cursor: pointer;
+}
+
+/* Due Quizzes Modal */
+.due-modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.due-modal-content {
+    background: #ffffff;
+    border: 4px solid var(--charcoal);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.2s ease-out;
+}
+
+.due-modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 3px solid var(--charcoal);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #F5A63A; 
+    color: #ffffff;
+}
+
+.due-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+}
+
+.due-modal-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.due-modal-body {
+    padding: 1.25rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.due-empty {
+    text-align: center;
+    color: #64748b;
+    font-weight: 700;
+    padding: 2rem 0;
+}
+
+.due-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.due-item {
+    background: #f8fafc;
+    border: 3px solid var(--charcoal);
+    border-radius: 12px;
+    padding: 0.8rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.due-item:hover {
+    transform: translateY(-3px);
+    background: #eff6ff;
+}
+
+.due-item-info h3 {
+    margin: 0 0 0.2rem 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--charcoal);
+}
+
+.due-item-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.due-item-date {
+    background: #ff6b6b;
+    color: #ffffff;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1.5px solid var(--charcoal);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Bring empty state closer to Recent Quizzes header above */
+.dash-main-content .empty-state-container {
+    margin-top: 0.25rem !important;
 }
 
 @media (max-width: 1200px) {

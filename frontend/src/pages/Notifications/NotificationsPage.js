@@ -142,6 +142,7 @@ const NotificationsPage = () => {
 
         try {
             await axiosClient.delete(`/api/notifications/${notif.id}`);
+            bumpFriendsVersion();
         } catch (err) {
             showToast('Failed to dismiss notification.', 'error');
             fetchNotifications(); // revert
@@ -151,7 +152,7 @@ const NotificationsPage = () => {
     };
 
     const handleView = async (notif) => {
-        if (notif.notification_type === 'quiz_share') {
+        if (notif.notification_type === 'quiz_share' || notif.notification_type === 'quiz_deadline') {
             const quizId = notif.data?.quiz_id;
             if (!quizId) return;
             try {

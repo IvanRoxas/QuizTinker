@@ -177,7 +177,7 @@ const ManageQuizContentPage = () => {
     const handleAddItem = async () => {
         try {
             const formData = new FormData();
-            formData.append('question', 'New Question');
+            formData.append('question', '');
             formData.append('type', 'identification');
             formData.append('sort_order', items.length);
             const newItem = await createQuizItem(id, formData);
@@ -548,21 +548,32 @@ const ManageQuizContentPage = () => {
                         </span>
                     </div>
                     <div className="action-bar-right">
-                        <button
-                            className="neo-btn secondary-btn"
-                            onClick={handleManualSave}
-                            disabled={saving}
-                        >
-                            {saving ? 'SAVING...' : 'SAVE DRAFT'}
-                        </button>
                         {isPublished ? (
-                            <button className="neo-btn outline-btn" onClick={() => setShowUnpublishModal(true)}>
-                                REVERT TO DRAFT
-                            </button>
+                            <>
+                                <button className="neo-btn outline-btn" onClick={() => setShowUnpublishModal(true)}>
+                                    REVERT TO DRAFT
+                                </button>
+                                <button
+                                    className="neo-btn secondary-btn"
+                                    onClick={handleManualSave}
+                                    disabled={saving}
+                                >
+                                    {saving ? 'SAVING...' : 'SAVE CHANGES'}
+                                </button>
+                            </>
                         ) : (
-                            <button className="neo-btn success-btn" disabled={saving} onClick={handlePublish}>
-                                PUBLISH QUIZ
-                            </button>
+                            <>
+                                <button
+                                    className="neo-btn secondary-btn"
+                                    onClick={handleManualSave}
+                                    disabled={saving}
+                                >
+                                    {saving ? 'SAVING...' : 'SAVE DRAFT'}
+                                </button>
+                                <button className="neo-btn success-btn" disabled={saving} onClick={handlePublish}>
+                                    PUBLISH QUIZ
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -666,7 +677,7 @@ const ManageQuizContentPage = () => {
                                             className="neo-textarea w-full"
                                             value={draft.question || ''}
                                             onChange={(e) => setEditing({ ...editing, [item.id]: { ...draft, question: e.target.value } })}
-                                            placeholder="Question text..."
+                                            placeholder="Enter a new question..."
                                         />
 
                                         <div className="media-upload-section">

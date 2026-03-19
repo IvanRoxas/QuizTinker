@@ -80,21 +80,12 @@ const UserProfile = () => {
         // Apply global background to the layout container for full screen bleed
         const layoutEl = document.querySelector('.dashboard-layout');
         if (layoutEl) {
-            layoutEl.style.backgroundImage = "url('/Backgrounds/bg1.jpg')";
-            layoutEl.style.backgroundSize = 'cover';
-            layoutEl.style.backgroundPosition = 'center';
-            layoutEl.style.backgroundAttachment = 'fixed';
-            layoutEl.style.backgroundRepeat = 'no-repeat';
+            layoutEl.style.backgroundColor = '#ffffff';
         }
 
         return () => {
-            // Cleanup on unmount
             if (layoutEl) {
-                layoutEl.style.backgroundImage = '';
-                layoutEl.style.backgroundSize = '';
-                layoutEl.style.backgroundPosition = '';
-                layoutEl.style.backgroundAttachment = '';
-                layoutEl.style.backgroundRepeat = '';
+                layoutEl.style.backgroundColor = '';
             }
         };
     }, [id, currentUser, navigate, showToast]);

@@ -29,7 +29,7 @@
     background: var(--white);
     border: 3px solid var(--charcoal);
     border-radius: 1.5rem;
-    box-shadow: 8px 8px 0 var(--charcoal);
+    box-shadow: var(--shadow-lg);
     width: 760px;
     max-width: 95vw;
     max-height: 92vh;
@@ -109,7 +109,7 @@
     border-radius: 1rem;
     padding: 1rem;
     width: 220px;
-    box-shadow: 6px 6px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     z-index: 100;
     animation: slideDown 0.15s ease-out;
 }
@@ -150,7 +150,7 @@
 .confirm-yes:hover,
 .confirm-no:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 .neo-confirm-popup.popup-up {
@@ -276,7 +276,7 @@
     padding: 1rem;
     border: 2px solid var(--charcoal);
     border-radius: 1rem;
-    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-md);
 }
 
 .checkbox-group {
@@ -311,7 +311,7 @@
     background: #E3F2FD;
     padding: 1.25rem;
     border-radius: 1rem;
-    box-shadow: 6px 6px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     animation: slideDown 0.2s ease-out;
 }
 
@@ -373,13 +373,13 @@
 
 .friend-check-item:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .friend-check-item.checked {
     background: #CAFFBF;
     border-color: var(--charcoal);
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     transform: translate(-2px, -2px);
 }
 
@@ -453,6 +453,8 @@
     /* Allow title to shrink/grow as needed */
     min-width: 0;
     /* Allow truncation if needed */
+    position: relative;
+    /* Anchor absolute asterisk */
 }
 
 .title-input {
@@ -461,10 +463,11 @@
     font-weight: 900;
     color: var(--blue);
     border: none;
+    border-bottom: 2px solid var(--charcoal);
     outline: none;
     background: transparent;
     width: 100%;
-    padding: 0;
+    padding: 0 0 2px 0;
 }
 
 .status-badge {
@@ -475,7 +478,7 @@
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    box-shadow: 2px 2px 0px #000;
+    box-shadow: var(--shadow-sm);
     flex-shrink: 0;
     white-space: nowrap;
 }
@@ -546,7 +549,7 @@
 .neo-select:focus,
 .neo-textarea:focus {
     border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(90, 130, 230, 0.15);
+    box-shadow: var(--shadow-sm);
 }
 
 .neo-textarea {
@@ -578,7 +581,7 @@
     height: 210px;
     border-radius: 1rem;
     border: 3px solid var(--charcoal);
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
     position: relative;
     overflow: hidden;
     cursor: pointer;
@@ -589,13 +592,14 @@
 
 .image-preview-box:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 5px 5px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .image-placeholder-gradient {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, #FFD6A5, #CAFFBF, #A8DADC, #BDB2FF);
+    background-color: #ffcc00;
+    /* Soft Marigold White */
 }
 
 .camera-btn {
@@ -611,7 +615,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 2px 2px 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
     transition: transform 0.15s, box-shadow 0.15s;
     color: var(--charcoal);
     z-index: 2;
@@ -619,7 +623,7 @@
 
 .camera-btn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ── Action Buttons ── */
@@ -648,7 +652,7 @@
     cursor: pointer;
     border: 3px solid var(--charcoal);
     transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .draft-btn {
@@ -673,7 +677,7 @@
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .publish-btn,
@@ -688,7 +692,7 @@
     cursor: pointer;
     border: 3px solid var(--charcoal);
     transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 4px 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .publish-btn {
@@ -711,13 +715,13 @@
 .manage-btn:hover:not(:disabled),
 .publish-btn:hover:not(:disabled) {
     transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .manage-btn:active:not(:disabled),
 .publish-btn:active:not(:disabled) {
     transform: translate(2px, 2px);
-    box-shadow: 0 0 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ── View Mode Context ── */
@@ -794,7 +798,7 @@
     font-weight: 800;
     font-size: 0.85rem;
     background-color: #f8fafc;
-    box-shadow: 2px 2px 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
     color: var(--charcoal);
 }
 
@@ -809,7 +813,7 @@
     padding: 1.25rem;
     border: 3px solid var(--charcoal);
     border-radius: 12px;
-    box-shadow: 6px 6px 0px var(--charcoal);
+    box-shadow: var(--shadow-md);
     cursor: pointer;
     transition: all 0.1s;
     letter-spacing: 1px;
@@ -818,13 +822,13 @@
 
 .take-quiz-cta-massive:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0px var(--charcoal);
+    box-shadow: var(--shadow-lg);
     filter: brightness(1.05);
 }
 
 .take-quiz-cta-massive:active {
     transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0px var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 .view-only-image {

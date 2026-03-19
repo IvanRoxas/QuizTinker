@@ -435,7 +435,16 @@ const TakeQuizPage = () => {
 
     if (loading) return <div className="take-message">Preparing Quiz...</div>;
     if (errorMsg) return <div className="take-message error">{errorMsg}</div>;
-    if (items.length === 0) return <div className="take-message">No questions in this quiz.</div>;
+    if (items.length === 0) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#f8f7f2', gap: '0.5rem' }}>
+                <p style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1E1E1E', margin: 0 }}>No questions in this quiz.</p>
+                <button className="neo-btn primary" onClick={() => navigate('/dashboard')} style={{ padding: '16px 32px', fontSize: '1.25rem', marginTop: '1.5rem', cursor: 'pointer' }}>
+                    Back to Dashboard
+                </button>
+            </div>
+        );
+    }
 
     const currentItem = items[currentStep];
     const isFirst = currentStep === 0;

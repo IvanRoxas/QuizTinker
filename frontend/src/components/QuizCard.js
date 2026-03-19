@@ -59,6 +59,11 @@ const QuizCard = ({ quiz, onClick }) => {
             </div>
 
             <div className="quiz-card-body">
+                {quiz.generation_type === 'ai' && (
+                    <div className="quiz-card-ai-tag" style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '0.8rem', marginBottom: '4px' }}>
+                        Made with TinkerBot
+                    </div>
+                )}
                 <h4 className="quiz-card-title">{quiz.title}</h4>
                 <div className="quiz-card-author">
                     <UserIcon size={14} />

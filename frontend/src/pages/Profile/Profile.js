@@ -8,7 +8,7 @@ import { getDisplayName } from '../../utils/userUtils';
 import './Profile.css';
 
 const Profile = () => {
-    const { user, logout, updateUserContext, showToast } = useAuth();
+    const { user, logout, updateUserContext, showToast, bumpFriendsVersion } = useAuth();
     const navigate = useNavigate();
 
     // Data States
@@ -52,21 +52,12 @@ const Profile = () => {
         // Apply global background to the layout container for full screen bleed
         const layoutEl = document.querySelector('.dashboard-layout');
         if (layoutEl) {
-            layoutEl.style.backgroundImage = "url('/Backgrounds/bg1.jpg')";
-            layoutEl.style.backgroundSize = 'cover';
-            layoutEl.style.backgroundPosition = 'center';
-            layoutEl.style.backgroundAttachment = 'fixed';
-            layoutEl.style.backgroundRepeat = 'no-repeat';
+            layoutEl.style.backgroundColor = '#ffffff';
         }
 
         return () => {
-            // Cleanup on unmount so other pages aren't affected unless they set their own
             if (layoutEl) {
-                layoutEl.style.backgroundImage = '';
-                layoutEl.style.backgroundSize = '';
-                layoutEl.style.backgroundPosition = '';
-                layoutEl.style.backgroundAttachment = '';
-                layoutEl.style.backgroundRepeat = '';
+                layoutEl.style.backgroundColor = '';
             }
         };
     }, []);
@@ -256,6 +247,7 @@ const Profile = () => {
         try {
             await axiosClient.delete(`/api/friends/${friendId}`);
             showToast("Friend removed.");
+            bumpFriendsVersion();
         } catch (error) {
             console.error("Failed to remove friend", error);
             showToast("Failed to remove friend.", "error");

@@ -437,12 +437,11 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                     <input
                                         type="text"
                                         className="title-input"
-                                        placeholder="Untitled"
+                                        placeholder={quizData?.status === 'published' ? 'Untitled' : '*Untitled'}
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
                                     />
                                 )}
-                                {!viewOnly && <span className="required-asterisk">*</span>}
                             </div>
 
                             {/* Status Badge */}
@@ -596,8 +595,8 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
                                     >
-                                        <option value="GenEd">GenEd</option>
-                                        <option value="ProfEd">ProfEd</option>
+                                        <option value="General Education">General Education</option>
+                                        <option value="Professional Education">Professional Education</option>
                                         <option value="Specialization">Specialization</option>
                                     </select>
                                 </div>

@@ -65,19 +65,19 @@
     font-size: larger;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .login-btn:hover {
     background-color: var(--white);
     color: var(--charcoal);
     transform: translateY(-2px);
-    box-shadow: 0 6px 0 var(--charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .login-btn:active {
     transform: translateY(2px);
-    box-shadow: 0 0 0 var(--charcoal);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ===== Hero Section ===== */
