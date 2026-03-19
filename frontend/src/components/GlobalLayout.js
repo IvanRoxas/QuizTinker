@@ -141,8 +141,8 @@ const NotificationDropdown = ({ notifications, loadingNotifs, onAccept, onReject
                                 return (
                                     <div
                                         key={notif.id}
-                                        className={`notification-item ${!notif.read_at ? 'unread' : ''} ${notif.notification_type === 'quiz_share' ? 'clickable' : ''}`}
-                                        onClick={() => notif.notification_type === 'quiz_share' && onQuizClick && onQuizClick(notif)}
+                                        className={`notification-item ${!notif.read_at ? 'unread' : ''} ${(notif.notification_type === 'quiz_share' || notif.notification_type === 'quiz_deadline') ? 'clickable' : ''}`}
+                                        onClick={() => (notif.notification_type === 'quiz_share' || notif.notification_type === 'quiz_deadline') && onQuizClick && onQuizClick(notif)}
                                     >
                                         <div className="notification-item-avatar">
                                             {notif.sender?.avatar_url
@@ -152,11 +152,14 @@ const NotificationDropdown = ({ notifications, loadingNotifs, onAccept, onReject
                                         </div>
                                         <div className="notification-item-content">
                                             <p className="notification-item-text">
-                                                <strong>{getDisplayName(notif.sender)}</strong>
+                                                {notif.notification_type !== 'quiz_deadline' && <strong>{getDisplayName(notif.sender)}</strong>}
                                                 {notif.notification_type === 'friend_request' && ' sent you a friend request.'}
                                                 {notif.notification_type === 'friend_accepted' && ' accepted your friend request.'}
                                                 {notif.notification_type === 'quiz_share' && (
                                                     <> shared a quiz: <em>{notif.data?.message?.split("'")[1] || 'New Quiz'}</em></>
+                                                )}
+                                                {notif.notification_type === 'quiz_deadline' && (
+                                                    <>{notif.data?.message || 'Deadline Reminder'}</>
                                                 )}
                                             </p>
                                             <span className="notification-item-time">

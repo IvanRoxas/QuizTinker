@@ -12,7 +12,7 @@
     border-radius: 1rem;
     padding: 3rem 2rem;
     margin: 2rem 0;
-    box-shadow: 6px 6px 0 var(--charcoal, #1A1A1A);
+    box-shadow: var(--shadow-md);
     min-height: 200px;
 }
 

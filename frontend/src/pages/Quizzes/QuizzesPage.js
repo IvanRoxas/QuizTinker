@@ -30,7 +30,7 @@ const QuizzesPage = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'published');
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilter, setActiveFilter] = useState('all');
+    const [activeFilter, setActiveFilter] = useState(location.state?.activeFilter || 'all');
     const [sortOption, setSortOption] = useState('newest');
     const [filterOpen, setFilterOpen] = useState(false);
     const filterRef = React.useRef(null);
@@ -42,9 +42,12 @@ const QuizzesPage = () => {
     const loadQuizzes = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch all quizzes the user can see
-            const data = await fetchQuizzes();
-            setQuizzes(data);
+            // Fetch published and drafts in parallel just like Dashboard
+            const [publishedData, draftsData] = await Promise.all([
+                fetchQuizzes({ status: 'published' }),
+                fetchQuizzes({ status: 'draft', mine: true })
+            ]);
+            setQuizzes([...publishedData, ...draftsData]);
         } catch (err) {
             console.error('Failed to fetch quizzes', err);
         } finally {
@@ -77,23 +80,21 @@ const QuizzesPage = () => {
             list = list.filter(q => q.title.toLowerCase().includes(searchTerm.toLowerCase()));
         }
 
-        // 3. Category Filter (Only for published)
-        if (activeTab === 'published') {
-            list = list.filter(q => {
-                switch (activeFilter) {
-                    case 'mine':
-                        return q.author === user?.id;
-                    case 'friends':
-                        return (q.availability === 'all_friends' || q.availability === 'specific_friends') && q.author !== user?.id;
-                    case 'ai':
-                        return q.generation_type === 'ai';
-                    default:
-                        return true;
-                }
-            });
-        }
+        // 3. Category/Author Filter
+        list = list.filter(q => {
+            switch (activeFilter) {
+                case 'mine':
+                    return q.author === user?.id;
+                case 'friends':
+                    return (q.availability === 'all_friends' || q.availability === 'specific_friends') && q.author !== user?.id;
+                case 'ai':
+                    return q.generation_type === 'ai';
+                default:
+                    return true;
+            }
+        });
 
-        // 4. Sorting
+        // 4. Sorting for both
         list.sort((a, b) => {
             switch (sortOption) {
                 case 'oldest':
@@ -133,9 +134,9 @@ const QuizzesPage = () => {
     };
 
     const hasQuizzesData = !loading && displayList.length > 0;
-    const currentFilterLabel = activeTab === 'published'
-        ? (FILTER_OPTIONS.find(f => f.value === activeFilter)?.label || 'Filter')
-        : (SORT_OPTIONS.find(s => s.value === sortOption)?.label || 'Sort');
+    const filterLabel = FILTER_OPTIONS.find(f => f.value === activeFilter)?.label || 'Filter';
+    const sortLabel = SORT_OPTIONS.find(s => s.value === sortOption)?.label || 'Sort';
+    const currentFilterLabel = `${filterLabel} | ${sortLabel}`;
 
     return (
         <main className="quizzes-page">
@@ -164,16 +165,6 @@ const QuizzesPage = () => {
                 </div>
 
                 <div className="quizzes-filters-group">
-                    <div className="quiz-inline-search">
-                        <Search size={20} className="quiz-inline-search-icon" />
-                        <input
-                            type="text"
-                            placeholder={activeTab === 'published' ? "Search quizzes..." : "Search drafts..."}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
                     <div className="filter-dropdown-wrapper" ref={filterRef}>
                         <button
                             className="filter-btn-neo"
@@ -184,31 +175,40 @@ const QuizzesPage = () => {
                         </button>
                         {filterOpen && (
                             <div className="filter-dropdown-menu">
-                                {activeTab === 'published' ? (
-                                    FILTER_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            className={`filter-option ${activeFilter === opt.value ? 'active' : ''}`}
-                                            onClick={() => { setActiveFilter(opt.value); setFilterOpen(false); }}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))
-                                ) : (
-                                    SORT_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            className={`filter-option ${sortOption === opt.value ? 'active' : ''}`}
-                                            onClick={() => { setSortOption(opt.value); setFilterOpen(false); }}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))
-                                )}
+                                <div style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', backgroundColor: '#f8fafc' }}>FILTER BY</div>
+                                {FILTER_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        className={`filter-option ${activeFilter === opt.value ? 'active' : ''}`}
+                                        onClick={() => { setActiveFilter(opt.value); setFilterOpen(false); }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                  ))}
+                                <div style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>SORT BY</div>
+                                {SORT_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        className={`filter-option ${sortOption === opt.value ? 'active' : ''}`}
+                                        onClick={() => { setSortOption(opt.value); setFilterOpen(false); }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
                             </div>
                         )}
                     </div>
                 </div>
+            </div>
+
+            <div className="quiz-inline-search">
+                <Search size={20} className="quiz-inline-search-icon" />
+                <input
+                    type="text"
+                    placeholder={activeTab === 'published' ? "Search quizzes..." : "Search drafts..."}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             {/* Content */}

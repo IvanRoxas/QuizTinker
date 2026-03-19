@@ -59,8 +59,8 @@ const Auth = () => {
     };
 
     return (
-        <div 
-            className="auth-page-wrapper" 
+        <div
+            className="auth-page-wrapper"
             style={{ backgroundImage: `url(${isLogin ? '/Backgrounds/bg1.jpg' : '/Backgrounds/bg2.jpg'})` }}
         >
             <AuthHeader />
@@ -120,8 +120,8 @@ const Auth = () => {
                                     </button>
                                 </form>
                                 <p className="auth-switch-text">
-                                    Don't have an account yet? <span onClick={() => { 
-                                        setIsLogin(false); 
+                                    Don't have an account yet? <span onClick={() => {
+                                        setIsLogin(false);
                                         setErrors({});
                                         setFormData({ name: '', first_name: '', last_name: '', email: '', password: '', password_confirmation: '' });
                                     }}>Sign up</span>
@@ -234,8 +234,8 @@ const Auth = () => {
                                     </button>
                                 </form>
                                 <p className="auth-switch-text green">
-                                    Already have an account? <span onClick={() => { 
-                                        setIsLogin(true); 
+                                    Already have an account? <span onClick={() => {
+                                        setIsLogin(true);
                                         setErrors({});
                                         setFormData({ name: '', first_name: '', last_name: '', email: '', password: '', password_confirmation: '' });
                                     }}>Log in</span>

@@ -67,7 +67,7 @@ const QuizCalendar = ({ quizzes = [], variant = 'full' }) => {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const now = new Date();
             const dayQuizzes = quizzes.filter(q => {
-                if (q.status !== 'published' || !q.deadline) return false;
+                if (!q.deadline) return false;
                 const deadDate = new Date(q.deadline);
                 return deadDate.getFullYear() === year && 
                        deadDate.getMonth() === month && 

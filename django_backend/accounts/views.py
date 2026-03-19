@@ -484,6 +484,85 @@ class NotificationPagination(PageNumberPagination):
 
 @api_view(['GET'])
 def notifications_list_view(request):
+    # Sweep deadlines for reminders
+    current_time = timezone.now()
+    try:
+        from quizzes.models import Quiz, QuizAttempt
+        # Resolve visible quizzes with deadlines
+        visibility_q = Q()
+        from accounts.models import Friendship
+        friend_ids = Friendship.objects.filter(
+            Q(user=request.user, status="accepted") | Q(friend=request.user, status="accepted")
+        ).values_list("user_id", "friend_id")
+
+        flattened_friends = set()
+        for u_id, f_id in friend_ids:
+            flattened_friends.add(u_id)
+            flattened_friends.add(f_id)
+        flattened_friends.discard(request.user.id)
+
+        visibility_q |= Q(status="published", availability="all_friends", author_id__in=flattened_friends)
+        visibility_q |= Q(status="published", availability="specific_friends", shared_with=request.user)
+
+        visible_quizzes = Quiz.objects.filter(
+            visibility_q,
+            deadline__isnull=False,
+            is_active=True
+        ).exclude(author=request.user).distinct()
+
+        for quiz in visible_quizzes:
+            has_completed = QuizAttempt.objects.filter(
+                quiz=quiz, user=request.user, completed=True
+            ).exists()
+            if has_completed:
+                continue
+
+            time_left = quiz.deadline - current_time
+            is_approaching = timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=24)
+            is_late = current_time > quiz.deadline and quiz.allow_late_submissions
+
+            if is_approaching:
+                notif_exists = Notification.objects.filter(
+                    user=request.user,
+                    notification_type='quiz_deadline',
+                    data__quiz_id=quiz.id,
+                    data__deadline_type='approaching'
+                ).exists()
+
+                if not notif_exists:
+                    Notification.objects.create(
+                        user=request.user,
+                        sender=quiz.author,
+                        notification_type='quiz_deadline',
+                        data={
+                            'message': f'Reminder: "{quiz.title}" is due in less than 24 hours!',
+                            'quiz_id': quiz.id,
+                            'deadline_type': 'approaching'
+                        }
+                    )
+            elif is_late:
+                notif_exists = Notification.objects.filter(
+                    user=request.user,
+                    notification_type='quiz_deadline',
+                    data__quiz_id=quiz.id,
+                    data__deadline_type='late'
+                ).exists()
+
+                if not notif_exists:
+                    Notification.objects.create(
+                        user=request.user,
+                        sender=quiz.author,
+                        notification_type='quiz_deadline',
+                        data={
+                            'message': f'Notice: "{quiz.title}" is past its deadline, but taking is still open.',
+                            'quiz_id': quiz.id,
+                            'deadline_type': 'late'
+                        }
+                    )
+
+    except Exception:
+        pass
+
     notifs_query = Notification.objects.filter(
         user=request.user
     ).select_related('sender').order_by('-created_at')

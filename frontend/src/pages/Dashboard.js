@@ -4,7 +4,7 @@ import { fetchQuizzes } from '../api/quizApi';
 import QuizCard from '../components/QuizCard';
 import CreateQuizModal from '../components/CreateQuizModal';
 import { Search, ChevronDown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import EmptyState from '../components/EmptyState';
 import './Dashboard.css';
 
@@ -24,6 +24,8 @@ const SORT_OPTIONS = [
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const [dueModalOpen, setDueModalOpen] = useState(false);
 
     // Quizzes state
     const [quizzes, setQuizzes] = useState([]);
@@ -31,7 +33,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
-    const [activeTab, setActiveTab] = useState('quizzes'); // 'quizzes' or 'drafts'
+    const [activeTab, setActiveTab] = useState('quizzes');
     const [sortOption, setSortOption] = useState('newest');
     const [filterOpen, setFilterOpen] = useState(false);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -39,6 +41,29 @@ const Dashboard = () => {
 
     // Modal
     const [modalOpen, setModalOpen] = useState(false);
+
+    // Tip & Stats logic
+    const [currentTip, setCurrentTip] = useState('');
+    useEffect(() => {
+        const tips = [
+            'Tip: Type keywords in the search bar below to find quizzes instantly.',
+            'Tip: Did you know you can generate a quiz with our TinkerBot?',
+            'Tip: You can reorder questions with drag and drop in the editor.',
+            'Tip: The notifications can help keep you updated on friend requests and quiz deadlines.',
+            'Tip: Feel free to express yourselves with unique profile pictures and banners.',
+            'Tip: You can set a deadline for the quizzes you create.',
+            'Tip: QuizTinker allows you to manually generate quizzes, or have them made by our special A.I. TinkerBot!',
+            'Tip: Always be grateful for what you have.'
+        ];
+        setCurrentTip(tips[Math.floor(Math.random() * tips.length)]);
+    }, []);
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 18) return 'Good Afternoon';
+        return 'Good Evening';
+    };
 
     const loadQuizzes = useCallback(async () => {
         setLoading(true);
@@ -88,36 +113,35 @@ const Dashboard = () => {
             list = list.filter(q => q.title.toLowerCase().includes(searchTerm.toLowerCase()));
         }
 
-        // 3. Tab-based logic (Filter for Quizzes, Sort for Drafts)
-        if (activeTab === 'quizzes') {
-            list = list.filter(q => {
-                switch (activeFilter) {
-                    case 'mine':
-                        return q.author === user?.id;
-                    case 'friends':
-                        return (q.availability === 'all_friends' || q.availability === 'specific_friends') && q.author !== user?.id;
-                    case 'ai':
-                        return q.generation_type === 'ai';
-                    default:
-                        return true;
-                }
-            });
-        } else {
-            // Sorting for drafts
-            list.sort((a, b) => {
-                switch (sortOption) {
-                    case 'oldest':
-                        return new Date(a.created_at) - new Date(b.created_at);
-                    case 'az':
-                        return a.title.localeCompare(b.title);
-                    case 'za':
-                        return b.title.localeCompare(a.title);
-                    case 'newest':
-                    default:
-                        return new Date(b.created_at) - new Date(a.created_at);
-                }
-            });
-        }
+        // 3. Category/Author Filter
+        list = list.filter(q => {
+            switch (activeFilter) {
+                case 'mine':
+                    return q.author === user?.id;
+                case 'friends':
+                    return (q.availability === 'all_friends' || q.availability === 'specific_friends') && q.author !== user?.id;
+                case 'ai':
+                    return q.generation_type === 'ai';
+                default:
+                    return true;
+            }
+        });
+
+        // 4. Sorting for both
+        list.sort((a, b) => {
+            switch (sortOption) {
+                case 'oldest':
+                    return new Date(a.created_at) - new Date(b.created_at);
+                case 'az':
+                    return a.title.localeCompare(b.title);
+                case 'za':
+                    return b.title.localeCompare(a.title);
+                case 'newest':
+                default:
+                    return new Date(b.created_at) - new Date(a.created_at);
+            }
+        });
+
         return list;
     };
 
@@ -145,9 +169,9 @@ const Dashboard = () => {
         }
     };
 
-    const currentFilterLabel = activeTab === 'quizzes'
-        ? (FILTER_OPTIONS.find(f => f.value === activeFilter)?.label || 'Filter')
-        : (SORT_OPTIONS.find(s => s.value === sortOption)?.label || 'Sort');
+    const filterLabel = FILTER_OPTIONS.find(f => f.value === activeFilter)?.label || 'Filter';
+    const sortLabel = SORT_OPTIONS.find(s => s.value === sortOption)?.label || 'Sort';
+    const currentFilterLabel = `${filterLabel} | ${sortLabel}`;
 
     return (
         <main className="dash-main-content">
@@ -158,17 +182,55 @@ const Dashboard = () => {
                 </div>
             </header>
 
-            <section className="ranking-banner">
-                <div className="banner-content">
-                    <h2>RANKING SCORE<br />BOARD PLACEHOLDER</h2>
-                    <button className="view-ranks-btn">View Ranks</button>
+            <div className="dashboard-stats-grid">
+                <div className="stat-card blue clickable" onClick={() => navigate('/quizzes', { state: { activeTab: 'published', activeFilter: 'mine' } })}>
+                    <span className="stat-number">{quizzes.filter(q => q.author === user?.id).length}</span>
+                    <span className="stat-label">Quizzes Published</span>
                 </div>
-                <div className="banner-graphics">
-                    <div className="star star-1">★</div>
-                    <div className="star star-2">★</div>
-                    <div className="star star-3">★</div>
+                <div className="stat-card marigold clickable" onClick={() => setDueModalOpen(true)}>
+                    <span className="stat-number">{quizzes.filter(q => q.deadline && q.author !== user?.id).length}</span>
+                    <span className="stat-label">Quizzes Due</span>
                 </div>
-            </section>
+                <div className="stat-card blue clickable" onClick={() => navigate('/quizzes', { state: { activeTab: 'draft' } })}>
+                    <span className="stat-number">{drafts.length}</span>
+                    <span className="stat-label">Drafts Made</span>
+                </div>
+            </div>
+
+            <div className="dashboard-tip-banner">
+                <span className="tip-label">TinkerTips</span>
+                <p className="tip-text">{currentTip}</p>
+            </div>
+
+            {dueModalOpen && (
+                <div className="due-modal-backdrop" onClick={() => setDueModalOpen(false)}>
+                    <div className="due-modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="due-modal-header">
+                            <h2>Quizzes Due</h2>
+                            <button className="due-modal-close" onClick={() => setDueModalOpen(false)}>✕</button>
+                        </div>
+                        <div className="due-modal-body">
+                            {quizzes.filter(q => q.deadline && q.author !== user?.id).length === 0 ? (
+                                <p className="due-empty">No quizzes currently due!</p>
+                            ) : (
+                                <div className="due-list">
+                                    {quizzes.filter(q => q.deadline && q.author !== user?.id).map(q => (
+                                        <div key={q.id} className="due-item" onClick={() => { setDueModalOpen(false); navigate(`/quizzes/${q.id}`); }}>
+                                            <div className="due-item-info">
+                                                <h3>{q.title}</h3>
+                                                <p>By ID: {q.author}</p>
+                                            </div>
+                                            <div className="due-item-date">
+                                                <span>Due: {new Date(q.deadline).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <section className="quizzes-section">
                 <div className="quizzes-header-toggle">
@@ -210,27 +272,26 @@ const Dashboard = () => {
                         </button>
                         {filterOpen && (
                             <div className="filter-dropdown-menu">
-                                {activeTab === 'quizzes' ? (
-                                    FILTER_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            className={`filter-option ${activeFilter === opt.value ? 'active' : ''}`}
-                                            onClick={() => { setActiveFilter(opt.value); setFilterOpen(false); }}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))
-                                ) : (
-                                    SORT_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            className={`filter-option ${sortOption === opt.value ? 'active' : ''}`}
-                                            onClick={() => { setSortOption(opt.value); setFilterOpen(false); }}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))
-                                )}
+                                <div style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', backgroundColor: '#f8fafc' }}>FILTER BY</div>
+                                {FILTER_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        className={`filter-option ${activeFilter === opt.value ? 'active' : ''}`}
+                                        onClick={() => { setActiveFilter(opt.value); setFilterOpen(false); }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                                <div style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>SORT BY</div>
+                                {SORT_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        className={`filter-option ${sortOption === opt.value ? 'active' : ''}`}
+                                        onClick={() => { setSortOption(opt.value); setFilterOpen(false); }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -250,7 +311,7 @@ const Dashboard = () => {
                             if (activeFilter === 'mine') return <EmptyState title="It's kinda quiet here..." description="You haven't published any quizzes yet!" />;
                             if (activeFilter === 'friends') return <EmptyState title="It's kinda quiet here..." description="Your friends haven't published any quizzes yet!" />;
                             if (activeFilter === 'ai') return <EmptyState title="It's kinda quiet here..." description="You haven't generated any quizzes yet!" />;
-                            return <EmptyState title="No Quizzes" description="No quizzes found matching your search." />;
+                            return <EmptyState title="It's kinda quiet here..." description="No quizzes found matching your search." />;
                         })()
                     )
                 ) : (

@@ -79,6 +79,7 @@ class Notification(models.Model):
         ('quiz_share', 'Quiz Share'),
         ('system_alert', 'System Alert'),
         ('general', 'General'),
+        ('quiz_deadline', 'Quiz Deadline'),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='app_notifications')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_notifications')

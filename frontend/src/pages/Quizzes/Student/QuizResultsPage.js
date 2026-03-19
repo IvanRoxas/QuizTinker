@@ -57,21 +57,12 @@ const QuizResultsPage = () => {
         // Apply global background to the layout container for full screen bleed
         const layoutEl = document.querySelector('.dashboard-layout');
         if (layoutEl) {
-            layoutEl.style.backgroundImage = "url('/Backgrounds/bg2.jpg')";
-            layoutEl.style.backgroundSize = 'cover';
-            layoutEl.style.backgroundPosition = 'center';
-            layoutEl.style.backgroundAttachment = 'fixed';
-            layoutEl.style.backgroundRepeat = 'no-repeat';
+            layoutEl.style.backgroundColor = '#ffffff';
         }
 
         return () => {
-            // Cleanup on unmount
             if (layoutEl) {
-                layoutEl.style.backgroundImage = '';
-                layoutEl.style.backgroundSize = '';
-                layoutEl.style.backgroundPosition = '';
-                layoutEl.style.backgroundAttachment = '';
-                layoutEl.style.backgroundRepeat = '';
+                layoutEl.style.backgroundColor = '';
             }
         };
     }, [id, attemptId]);
@@ -362,8 +353,14 @@ const QuizResultsPage = () => {
                                     );
                                 })()}
 
+                                <img 
+                                    src="/Brand Images/QT-header.png" 
+                                    className="print-only-header" 
+                                    alt="QT Header" 
+                                />
+
                                 {analytics?.leaderboard && analytics.leaderboard.length > 0 && (
-                                    <button 
+                                    <button
                                         className="leaderboard-full-btn print-hide"
                                         onClick={() => setShowLeaderboard(true)}
                                     >
@@ -423,6 +420,17 @@ const QuizResultsPage = () => {
                                                     Out of {totalPointsPossible} pts
                                                 </div>
                                             </div>
+
+                                            {(() => {
+                                                const letPercentage = totalPointsPossible > 0 ? Math.round(50 + 50 * (score / totalPointsPossible)) : 50;
+                                                return (
+                                                    <div className="let-percentage-container" style={{ textAlign: 'center', marginBottom: '16px', width: '100%' }}>
+                                                        <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>
+                                                            You scored {letPercentage}%
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {analytics && analytics.total_students > 1 && totalPointsPossible > 0 && (
                                                 <div className="distribution-slider" style={{ position: 'relative', width: '100%', height: '50px', marginBottom: '20px' }}>
@@ -485,7 +493,7 @@ const QuizResultsPage = () => {
                                     <div className="ribbon-stat">
                                         <span className="ribbon-label">RANK</span>
                                         <span className="ribbon-value">
-                                            {analytics?.rank ? `${getOrdinalSuffix(analytics.rank)} / ${analytics.total_students}` : '--'}
+                                            {analytics?.rank ? `${getOrdinalSuffix(analytics.rank)} of ${analytics.total_students}` : '--'}
                                         </span>
                                     </div>
                                     <div className="ribbon-stat">
@@ -541,13 +549,13 @@ const QuizResultsPage = () => {
                         </div>
                         <div style={{ padding: '10px 0', overflowY: 'auto', flex: 1 }}>
                             {analytics.leaderboard.map((entry) => (
-                                <div key={entry.rank} style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    padding: '12px 20px', 
-                                    borderBottom: '1px solid #e2e8f0', 
-                                    backgroundColor: entry.student_name === user?.username ? '#fef08a' : 'transparent', 
-                                    fontWeight: entry.student_name === user?.username ? 800 : 500 
+                                <div key={entry.rank} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '12px 20px',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    backgroundColor: entry.student_name === user?.username ? '#fef08a' : 'transparent',
+                                    fontWeight: entry.student_name === user?.username ? 800 : 500
                                 }}>
                                     <div style={{ width: '45px', fontSize: '1.1rem', color: '#64748b', fontWeight: 800 }}>#{entry.rank}</div>
                                     <div style={{ flex: 1, fontSize: '1.1rem', color: '#0f172a' }}>{entry.student_name}</div>
