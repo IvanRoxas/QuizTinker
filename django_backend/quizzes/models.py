@@ -22,8 +22,10 @@ class Quiz(models.Model):
     ]
 
     STATUS_CHOICES = [
+        ('generating', 'Generating'),
         ('draft', 'Draft'),
         ('published', 'Published'),
+        ('error', 'Error'),
     ]
 
     GENERATION_TYPE_CHOICES = [
@@ -73,6 +75,7 @@ class Quiz(models.Model):
     )
     category = models.CharField(max_length=50, blank=True, null=True, help_text="For AI generated quizzes")
     specialization = models.CharField(max_length=100, blank=True, null=True, help_text="For AI generated quizzes")
+    meta = models.JSONField(default=dict, blank=True, help_text="Stores metadata about AI generation like source files, etc.")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -149,6 +152,7 @@ class QuizItem(models.Model):
     tf_correct = models.BooleanField(default=True)
     points = models.IntegerField(default=1, validators=[MinValueValidator(1)])
     sort_order = models.IntegerField(default=0)
+    bloom_level = models.CharField(max_length=20, blank=True, null=True)
     media = models.ImageField(upload_to='quiz_items/', blank=True, null=True)
 
     class Meta:

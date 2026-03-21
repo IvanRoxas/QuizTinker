@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'quizzes',
     'chatbot',
     'axes',
+    'django_q',
 ]
 
 # ---------- Middleware ----------
@@ -163,3 +164,18 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ---------- Django-Q2 ----------
+Q_CLUSTER = {
+    'name': 'QuizTinker',
+    'workers': 4,
+    'recycle': 500,
+    'timeout': 600,
+    'compress': True,
+    'save_limit': 250,
+    'queue_limit': 500,
+    'cpu_affinity': 1,
+    'label': 'Django Q',
+    'redis': False,
+    'orm': 'default',
+}

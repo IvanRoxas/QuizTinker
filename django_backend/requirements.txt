@@ -5,7 +5,8 @@ Pillow>=10.0
 django-environ
 psycopg2-binary
 django-axes
-google-generativeai==0.8.6
+google-genai>=1.0.0
 pdfplumber>=0.9.0
 python-docx>=0.8.11
 python-pptx>=0.6.21
+django-q2>=1.6.0

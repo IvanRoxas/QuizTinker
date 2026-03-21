@@ -465,7 +465,23 @@ const TakeQuizPage = () => {
 
             <div className="take-main-content">
                 <div className="question-counter">
-                    Question {currentStep + 1} of {items.length}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span>Question {currentStep + 1} of {items.length}</span>
+                        {currentItem.bloom_level && (
+                            <span style={{ 
+                                fontSize: '0.75rem', 
+                                padding: '0.2rem 0.6rem', 
+                                background: 'var(--blue)', 
+                                color: 'white', 
+                                borderRadius: '0.4rem',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                border: '2px solid var(--charcoal)'
+                            }}>
+                                {currentItem.bloom_level.replace('_', ' ')}
+                            </span>
+                        )}
+                    </div>
                     <div className="points-label">{currentItem.points} pts</div>
                 </div>
 
