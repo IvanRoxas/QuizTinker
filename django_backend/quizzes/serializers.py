@@ -16,7 +16,7 @@ class QuizItemStudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuizItem
-        fields = ['id', 'question', 'type', 'choices', 'meta', 'points', 'sort_order', 'media']
+        fields = ['id', 'question', 'type', 'choices', 'meta', 'points', 'sort_order', 'media', 'bloom_level']
         
     def get_choices(self, obj):
         # Strip 'is_correct' from choices

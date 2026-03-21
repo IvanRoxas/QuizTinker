@@ -9,6 +9,7 @@ class ChatMessage(models.Model):
         ('user', 'User'),
         ('assistant', 'Assistant'),
         ('system', 'System'),
+        ('file', 'File'),
     ]
 
     user = models.ForeignKey(

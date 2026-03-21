@@ -3,11 +3,13 @@ import logging
 import re
 import uuid
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import pdfplumber
 import docx
 
 from django.conf import settings
+from django.db.models import Min, Max, OuterRef, Subquery
 
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
@@ -16,6 +18,8 @@ from rest_framework.response import Response
 
 from .models import ChatMessage
 from .serializers import ChatMessageSerializer
+
+from quizzes.views import _SUBJECT_KEYWORDS
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,16 @@ logger = logging.getLogger(__name__)
 _HISTORY_WINDOW = 10
 
 _MAX_FILE_CHARS = 10_000
+
+# Token budgets — generous to avoid mid-sentence cutoffs
+_TOKENS_DEFAULT    = 1024   # was 600 — enough for 2–3 solid sentences with room
+_TOKENS_COMPLEX    = 2048   # was 1500
+_TOKENS_DETAIL     = 4096   # was 2048 — elaborate/breakdown requests
+_TOKENS_NUMBERED   = 3072   # new — numbered list requests (6 items, 10 tips, etc.)
+_TOKENS_FILE       = 4096   # file summarization — unchanged, already correct
+
+# Minimum tokens per numbered item — used to scale budget with count
+_TOKENS_PER_ITEM   = 180
 
 # ---------------------------------------------------------------------------
 # System Prompt
@@ -41,9 +55,12 @@ PERSONALITY:
 
 RESPONSE LENGTH — this is your most important rule:
 - Default: 2–3 sentences. That's it.
-- Only use bullets if the user explicitly asks for a list or breakdown.
+- Only use bullets/numbered lists if the user explicitly asks for a list,
+  breakdown, or specifies a number (e.g. "give me 6 benefits", "list 5 steps").
+- When the user asks for N items, ALWAYS use a numbered list format and provide
+  EXACTLY N items — no more, no fewer.
 - Only go longer if the question genuinely requires it (e.g. multi-part questions).
-- If you wrote more than 4 sentences — rewrite it shorter.
+- If you wrote more than 4 sentences without being asked — rewrite it shorter.
 - No headers. No bold labels. No "Here's a breakdown:".
 
 EXAMPLES of good responses:
@@ -51,6 +68,14 @@ EXAMPLES of good responses:
   A: "Photosynthesis is how plants turn sunlight, water, and CO₂ into glucose
      and oxygen — basically their way of making food. It happens in the
      chloroplasts, mostly in leaves. Want me to walk through the steps? 🌿"
+
+  Q: "Give me 6 benefits of reading books."
+  A: "1. Expands your vocabulary naturally over time.
+      2. Sharpens critical thinking and analytical skills.
+      3. Reduces stress by giving your mind a focused escape.
+      4. Improves memory and concentration.
+      5. Builds empathy by exposing you to different perspectives.
+      6. Strengthens writing skills through exposure to varied styles. 📚"
 
   Q: "What's the difference between mitosis and meiosis?"
   A: "Mitosis makes 2 identical cells (for growth/repair), while meiosis makes
@@ -76,8 +101,9 @@ STRICT RULES:
   "Let's break this down", "Alright,", or any opener that isn't the actual answer.
   Jump straight into the answer — no warm-up sentences.
 - NEVER use markdown formatting: no **bold**, no headers, no bullet dashes unless
-  explicitly asked.
+  explicitly asked for a list or breakdown.
 - Always finish your answer completely. Never cut off mid-sentence.
+- CRITICAL: Never truncate a numbered list. If you said you'll give N items, give all N.
 """
 
 _FILE_SCOPE_PROMPT = """\
@@ -114,8 +140,14 @@ _COMPLEXITY_SIGNALS = (
     "disadvantages", "how does", "why does", "walk me through",
 )
 
+# Fixed: added "benefits", "effects", "causes", "types", "features",
+# "characteristics", "parts", "rules", "principles", "methods"
 _NUMBER_PATTERN = re.compile(
-    r'\b(\d+)\s*(things|points|steps|reasons|examples|questions|items|ways|tips|facts)\b',
+    r'\b(\d+)\s*'
+    r'(things|points|steps|reasons|examples|questions|items|ways|tips|facts|'
+    r'benefits|effects|causes|types|features|characteristics|parts|rules|'
+    r'principles|methods|strategies|techniques|differences|similarities|'
+    r'advantages|disadvantages|uses|functions|goals|objectives|skills)\b',
     re.IGNORECASE,
 )
 
@@ -124,34 +156,60 @@ _NUMBER_PATTERN = re.compile(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _optimize_user_prompt(user_message: str, context_prefix: str = "") -> str:
+def _compute_max_tokens(user_message: str) -> tuple[int, bool, bool, re.Match | None]:
     """
-    Converts a raw user message into a clean, structured prompt for Gemini.
+    Determine the appropriate max_tokens budget and intent flags from the
+    user message. Returns (max_tokens, wants_detail, is_complex, number_match).
 
-    Key change from original: we no longer re-state the assistant's role or
-    personality here — the system prompt already does that. Re-stating it
-    caused the model to treat the system prompt as a secondary hint rather
-    than a hard rule, which weakened scope enforcement.
+    Centralised here so chat_view and _optimize_user_prompt use the same logic.
     """
     msg_lower = user_message.lower()
     wants_detail = any(trigger in msg_lower for trigger in _ELABORATION_TRIGGERS)
-    is_complex = any(signal in msg_lower for signal in _COMPLEXITY_SIGNALS)
-
+    is_complex   = any(signal  in msg_lower for signal  in _COMPLEXITY_SIGNALS)
     number_match = _NUMBER_PATTERN.search(user_message)
-    number_constraint = ""
-    if number_match:
-        count = number_match.group(1)
-        item_type = number_match.group(2)
-        number_constraint = (
-            f"\n- Provide exactly {count} {item_type} — no more, no fewer."
-        )
 
-    if wants_detail:
-        length_rule = "You may respond in 5–8 sentences."
+    if number_match:
+        count      = int(number_match.group(1))
+        # Scale: base budget + per-item allowance, floored at _TOKENS_NUMBERED
+        max_tokens = max(_TOKENS_NUMBERED, count * _TOKENS_PER_ITEM)
+    elif wants_detail:
+        max_tokens = _TOKENS_DETAIL
+    elif is_complex:
+        max_tokens = _TOKENS_COMPLEX
+    else:
+        max_tokens = _TOKENS_DEFAULT
+
+    return max_tokens, wants_detail, is_complex, number_match
+
+
+def _optimize_user_prompt(
+    user_message: str,
+    context_prefix: str = "",
+    wants_detail: bool = False,
+    is_complex: bool = False,
+    number_match: re.Match | None = None,
+) -> str:
+    """
+    Converts a raw user message into a clean, structured prompt for Gemini.
+    Accepts pre-computed intent flags so we don't run regex twice.
+    """
+    if number_match:
+        count      = number_match.group(1)
+        item_type  = number_match.group(2)
+        length_rule = f"Provide exactly {count} {item_type} as a numbered list — no more, no fewer."
+        format_note = (
+            f"\n- Use numbered list format (1. 2. 3. …) since the user requested {count} {item_type}."
+            f"\n- Complete ALL {count} items. Never stop early or truncate the list."
+        )
+    elif wants_detail:
+        length_rule = "You may respond in 5–8 sentences or use bullet points if helpful."
+        format_note = ""
     elif is_complex:
         length_rule = "You may respond in 3–4 sentences to fully cover the topic."
+        format_note = ""
     else:
         length_rule = "Keep your answer to 2–3 sentences."
+        format_note = ""
 
     optimized_prompt = (
         f"{context_prefix}"
@@ -161,7 +219,7 @@ def _optimize_user_prompt(user_message: str, context_prefix: str = "") -> str:
         f"- Plain text only — no markdown, no bold, no headers.\n"
         f"- No filler openers. Start directly with the answer.\n"
         f"- Always finish completely. Never cut off mid-sentence."
-        f"{number_constraint}"
+        f"{format_note}"
     )
 
     return optimized_prompt.strip()
@@ -177,7 +235,7 @@ def _build_gemini_history(messages) -> list:
         gemini_role = "model" if msg.role == "assistant" else "user"
         history.append({
             "role": gemini_role,
-            "parts": [msg.content],
+            "parts": [{"text": msg.content}],
         })
     return history
 
@@ -186,19 +244,17 @@ def _call_gemini_chat(history: list, user_message: str, max_tokens: int) -> str:
     """
     Call Gemini with conversation history and a new user message.
     """
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(
-        "gemini-2.5-flash",
-        system_instruction=_SYSTEM_PROMPT,
-    )
-    chat = model.start_chat(history=history)
-    response = chat.send_message(
-        user_message,
-        generation_config=genai.types.GenerationConfig(
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=_SYSTEM_PROMPT,
             temperature=0.6,
             max_output_tokens=max_tokens,
         ),
+        history=history
     )
+    response = chat.send_message(user_message)
     return response.text.strip()
 
 
@@ -206,10 +262,6 @@ def _count_consecutive_oos(messages: list) -> int:
     """
     Count how many of the most recent assistant messages were out-of-scope
     redirections, so we can tell the model when to escalate its tone.
-
-    We use a simple heuristic: if the assistant's last message contains one
-    of the OOS marker phrases, it was likely a redirection. This avoids
-    storing extra metadata in the DB.
     """
     OOS_MARKERS = (
         "outside my lane", "i wish i could help", "not quite my area",
@@ -276,16 +328,17 @@ def chat_view(request):
     Body: { message, session_id, quiz_id? }
     Returns: { reply, session_id }
     """
-    data = request.data
-    message = (data.get("message") or "").strip()
+    data       = request.data
+    message    = (data.get("message") or "").strip()
     session_id = (data.get("session_id") or "").strip() or str(uuid.uuid4())
-    quiz_id = data.get("quiz_id")
+    quiz_id    = data.get("quiz_id")
 
     if not message:
         return Response({"error": "message is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     user = request.user
 
+    # ── Quiz review context ───────────────────────────────────────────────
     context_prefix = ""
     if quiz_id:
         try:
@@ -322,28 +375,28 @@ def chat_view(request):
         except Exception as e:
             logger.warning(f"[CHATBOT] Could not load quiz context for quiz_id={quiz_id}: {e}")
 
+    # ── History ───────────────────────────────────────────────────────────
     past_messages = (
         ChatMessage.objects
         .filter(user=user, session_id=session_id)
         .exclude(role="system")
         .order_by("-created_at")[:_HISTORY_WINDOW]
     )
-    past_messages = list(reversed(past_messages))
+    past_messages  = list(reversed(past_messages))
     gemini_history = _build_gemini_history(past_messages)
 
-    msg_lower = message.lower()
-    wants_detail = any(trigger in msg_lower for trigger in _ELABORATION_TRIGGERS)
-    is_complex = any(signal in msg_lower for signal in _COMPLEXITY_SIGNALS)
+    # ── Token budget + intent detection (single pass) ─────────────────────
+    max_tokens, wants_detail, is_complex, number_match = _compute_max_tokens(message)
 
-    if wants_detail:
-        max_tokens = 2048
-    elif is_complex:
-        max_tokens = 1500
-    else:
-        max_tokens = 600
+    logger.info(
+        f"[CHATBOT] session={session_id} | tokens={max_tokens} | "
+        f"detail={wants_detail} | complex={is_complex} | "
+        f"numbered={number_match.group(0) if number_match else None}"
+    )
 
+    # ── OOS escalation hint ───────────────────────────────────────────────
     oos_count = _count_consecutive_oos(past_messages)
-    oos_hint = ""
+    oos_hint  = ""
     if oos_count >= 2:
         oos_hint = (
             f"\n[CONTEXT: You have already redirected this user {oos_count} time(s) "
@@ -352,10 +405,18 @@ def chat_view(request):
             f"academic topic you can actually help with. Keep it short and friendly.]"
         )
 
-    optimized_prompt = _optimize_user_prompt(message, context_prefix)
+    # ── Build prompt ──────────────────────────────────────────────────────
+    optimized_prompt = _optimize_user_prompt(
+        message,
+        context_prefix=context_prefix,
+        wants_detail=wants_detail,
+        is_complex=is_complex,
+        number_match=number_match,
+    )
     if oos_hint:
         optimized_prompt += oos_hint
 
+    # ── Call Gemini ───────────────────────────────────────────────────────
     try:
         reply = _call_gemini_chat(gemini_history, optimized_prompt, max_tokens=max_tokens)
     except Exception as e:
@@ -365,14 +426,15 @@ def chat_view(request):
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-    ChatMessage.objects.create(
+    # ── Persist ───────────────────────────────────────────────────────────
+    user_msg = ChatMessage.objects.create(
         user=user,
         session_id=session_id,
         role="user",
         content=message,
         quiz_id=quiz_id,
     )
-    ChatMessage.objects.create(
+    bot_msg = ChatMessage.objects.create(
         user=user,
         session_id=session_id,
         role="assistant",
@@ -380,7 +442,12 @@ def chat_view(request):
         quiz_id=quiz_id,
     )
 
-    return Response({"reply": reply, "session_id": session_id})
+    return Response({
+        "reply": reply,
+        "session_id": session_id,
+        "user_message_id": user_msg.id,
+        "bot_message_id": bot_msg.id,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -396,8 +463,8 @@ def upload_view(request):
     Returns: { summary, explanation, session_id }
     """
     uploaded_file = request.FILES.get("file")
-    session_id = (request.data.get("session_id") or "").strip() or str(uuid.uuid4())
-    user = request.user
+    session_id    = (request.data.get("session_id") or "").strip() or str(uuid.uuid4())
+    user          = request.user
 
     if not uploaded_file:
         return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
@@ -418,19 +485,21 @@ def upload_view(request):
 
     truncated_text = _truncate(raw_text)
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    classifier_model = genai.GenerativeModel("gemini-2.5-flash")
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+    # ── Academic scope check ──────────────────────────────────────────────
     try:
-        scope_response = classifier_model.generate_content(
-            _FILE_SCOPE_PROMPT + truncated_text[:3000],
-            generation_config=genai.types.GenerationConfig(
+        scope_response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=_FILE_SCOPE_PROMPT + truncated_text[:3000],
+            config=types.GenerateContentConfig(
                 temperature=0.0,
                 max_output_tokens=16,
                 response_mime_type="application/json",
-            ),
+            )
         )
         scope_result = json.loads(scope_response.text.strip())
-        is_academic = bool(scope_result.get("is_academic", False))
+        is_academic  = bool(scope_result.get("is_academic", False))
     except Exception as e:
         logger.warning(f"[CHATBOT] Scope check failed: {e}. Assuming academic.")
         is_academic = True
@@ -448,6 +517,7 @@ def upload_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # ── Summarize ─────────────────────────────────────────────────────────
     summary_prompt = (
         f"You are an academic study assistant. A student has uploaded the following document.\n\n"
         f"Document:\n{truncated_text}\n\n"
@@ -460,18 +530,18 @@ def upload_view(request):
         f"Return ONLY the JSON object, no markdown fences."
     )
 
-    summarizer_model = genai.GenerativeModel("gemini-2.5-flash")
     try:
-        summary_response = summarizer_model.generate_content(
-            summary_prompt,
-            generation_config=genai.types.GenerationConfig(
+        summary_response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=summary_prompt,
+            config=types.GenerateContentConfig(
                 temperature=0.4,
-                max_output_tokens=2048,
+                max_output_tokens=_TOKENS_FILE,
                 response_mime_type="application/json",
-            ),
+            )
         )
-        result = json.loads(summary_response.text.strip())
-        summary = result.get("summary", "")
+        result      = json.loads(summary_response.text.strip())
+        summary     = result.get("summary", "")
         explanation = result.get("explanation", "")
     except Exception as e:
         logger.error(f"[CHATBOT] File summarization failed: {e}")
@@ -487,23 +557,26 @@ def upload_view(request):
         )
 
     file_display_name = uploaded_file.name
-    system_note = (
-        f"[File uploaded: {file_display_name}]\n"
-        f"Summary:\n{summary}\n\n"
-        f"Explanation:\n{explanation}"
-    )
-    ChatMessage.objects.create(
+    
+    file_payload = {
+        "fileName": file_display_name,
+        "summary": summary,
+        "explanation": explanation
+    }
+    
+    file_msg = ChatMessage.objects.create(
         user=user,
         session_id=session_id,
-        role="system",
-        content=system_note,
+        role="file",
+        content=json.dumps(file_payload),
     )
 
     return Response({
-        "summary": summary,
+        "summary":     summary,
         "explanation": explanation,
-        "session_id": session_id,
-        "file_name": file_display_name,
+        "session_id":  session_id,
+        "file_name":   file_display_name,
+        "file_message_id": file_msg.id,
     })
 
 
@@ -531,24 +604,115 @@ def history_view(request):
 
 
 # ---------------------------------------------------------------------------
-# View 4 — clear session
+# View 4 — unified delete
 # ---------------------------------------------------------------------------
 
 @api_view(["DELETE"])
-@parser_classes([JSONParser])
-def clear_view(request):
+def delete_view(request, session_id=None, message_id=None):
     """
-    DELETE /api/chatbot/clear/
-    Body: { session_id }
-    Deletes all messages for the given session belonging to the authenticated user.
-    """
-    session_id = (request.data.get("session_id") or "").strip()
-    if not session_id:
-        return Response({"error": "session_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+    Two URL patterns point here:
 
-    deleted_count, _ = ChatMessage.objects.filter(
+      DELETE /api/chatbot/session/<session_id>/   → deletes entire session
+      DELETE /api/chatbot/message/<message_id>/   → deletes a single message
+
+    No request body required for either. Auth is enforced — users can only
+    delete their own data.
+    """
+    user = request.user
+
+    # ── Single message ────────────────────────────────────────────────────
+    if message_id is not None:
+        try:
+            msg = ChatMessage.objects.get(id=message_id, user=user)
+            msg.delete()
+            return Response({"deleted": 1}, status=status.HTTP_200_OK)
+        except ChatMessage.DoesNotExist:
+            return Response(
+                {"error": "Message not found or unauthorized."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    # ── Entire session ────────────────────────────────────────────────────
+    if session_id is not None:
+        deleted_count, _ = ChatMessage.objects.filter(
+            user=user,
+            session_id=session_id,
+        ).delete()
+        # Return 404 if session didn't exist at all
+        if deleted_count == 0:
+            return Response(
+                {"error": "Session not found or already deleted."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({"deleted": deleted_count}, status=status.HTTP_200_OK)
+
+    # ── Neither param provided (shouldn't happen if URLs are set up right) ─
+    return Response(
+        {"error": "Provide either a session_id or message_id in the URL."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+# ---------------------------------------------------------------------------
+# View 5 — fetch recent sessions list
+# ---------------------------------------------------------------------------
+
+@api_view(["GET"])
+def sessions_list_view(request):
+    """
+    GET /api/chatbot/sessions/
+    Returns: { sessions: [{ session_id, title, updated_at }] } (max 10)
+    """
+    first_messages = ChatMessage.objects.filter(
         user=request.user,
-        session_id=session_id,
-    ).delete()
+        session_id=OuterRef("session_id"),
+        role="user",
+    ).order_by("created_at")
 
-    return Response({"deleted": deleted_count})
+    sessions = (
+        ChatMessage.objects
+        .filter(user=request.user)
+        .values("session_id")
+        .annotate(
+            updated_at=Max("created_at"),
+            first_message_content=Subquery(first_messages.values("content")[:1]),
+            first_message_time=Subquery(first_messages.values("created_at")[:1]),
+        )
+        .order_by("-updated_at")[:10]
+    )
+
+    result = []
+    for s in sessions:
+        title = s.get("first_message_content")
+
+        if not title or len(title.strip()) < 3:
+            # Fallback: file upload session or very short first message
+            dt    = s.get("first_message_time") or s.get("updated_at")
+            title = f"Chat — {dt.strftime('%b %d, %I:%M %p')}" if dt else "New Chat"
+        elif len(title) > 40:
+            title = title[:40].strip() + "…"
+
+        result.append({
+            "session_id": s["session_id"],
+            "title":      title,
+            "updated_at": s["updated_at"],
+        })
+
+    return Response({"sessions": result})
+
+
+# ---------------------------------------------------------------------------
+# View 6 — fetch subject keywords
+# ---------------------------------------------------------------------------
+
+@api_view(["GET"])
+def keywords_view(request):
+    """
+    GET /api/chatbot/keywords/
+    Returns: { keywords: [...] } (flattened, sorted list of all subject keywords)
+    """
+    flat_keywords = set()
+    for keywords in _SUBJECT_KEYWORDS.values():
+        flat_keywords.update(keywords)
+
+    return Response({"keywords": sorted(flat_keywords)})

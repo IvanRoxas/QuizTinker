@@ -41,6 +41,20 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const [description, setDescription] = useState('');
     const [promptText, setPromptText] = useState('');
     const [category, setCategory] = useState('GenEd');
+    const bloomLevels = [
+        "Remembering",
+        "Understanding",
+        "Applying",
+        "Analyzing",
+        "Evaluating",
+        "Creating"
+    ];
+    const [questions, setQuestions] = useState([0, 0, 0, 0, 0, 0]);
+    const resetBloom = () => {
+        setQuestions([0, 0, 0, 0, 0, 0]);
+    };
+
+
     const [specialization, setSpecialization] = useState('Filipino');
     const [generationType, setGenerationType] = useState('manual');
     const [deadline, setDeadline] = useState('');
@@ -120,6 +134,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             setAuthorName('');
             setAuthorAvatar('');
             setReferenceFiles([]);
+            setQuestions([1, 1, 1, 1, 1, 1]);
         }
     }, [quizData, isOpen]);
 
@@ -291,6 +306,28 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         setContinuing(true);
         try {
             if (activeTab === 'ai') {
+                const totalQ = questions.reduce((sum, n) => sum + n, 0);
+                if (totalQ < 5) {
+                    showToast('Minimum of 5 total questions required.', 'error');
+                    setContinuing(false);
+                    return;
+                }
+                const nonZeroLevels = questions.filter(n => n > 0).length;
+                if (nonZeroLevels < 2) {
+                    showToast('Please distribute questions across at least two Bloom levels.', 'error');
+                    setContinuing(false);
+                    return;
+                }
+
+                const distribution = {
+                    remembering: questions[0],
+                    understanding: questions[1],
+                    applying: questions[2],
+                    analyzing: questions[3],
+                    evaluating: questions[4],
+                    creating: questions[5]
+                };
+
                 let aiData;
                 if (referenceFiles.length > 0) {
                     aiData = new FormData();
@@ -302,6 +339,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     aiData.append('category', category);
                     aiData.append('specialization', specialization);
                     aiData.append('prompt', promptText);
+                    aiData.append('bloom_distribution', JSON.stringify(distribution));
 
                     referenceFiles.forEach((file, idx) => {
                         aiData.append(`reference_file_${idx + 1}`, file);
@@ -315,11 +353,13 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                         deadline: deadline ? new Date(deadline).toISOString() : null,
                         category: category,
                         specialization: specialization,
-                        prompt: promptText
+                        prompt: promptText,
+                        bloom_distribution: distribution
                     };
                 }
                 const generatedData = await aiGenerateQuiz(aiData);
                 onSaved && onSaved(generatedData, 'create');
+                resetBloom();
                 onClose();
                 navigate(`/quizzes/edit/${generatedData.id}`);
             } else {
@@ -331,6 +371,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     saved = await createQuiz(data);
                 }
                 onSaved && onSaved(saved, isEditing ? 'update' : 'create');
+                resetBloom();
                 onClose();
                 navigate(`/quizzes/edit/${saved.id}`);
             }
@@ -383,6 +424,27 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         }
     };
 
+    const handleQuestionChange = (index, newValue) => {
+        let value = parseInt(newValue);
+
+        // Enforce numbers only + minimum
+        if (isNaN(value) || value < 0) value = 0;
+        if (value > 10) value = 10;
+
+        const updated = [...questions];
+        updated[index] = value;
+
+        const total = updated.reduce((sum, num) => sum + num, 0);
+
+        // Enforce total max = 50
+        if (total > 60) {
+            showToast('Maximum of 60 total questions only.', 'error');
+            return;
+        }
+
+        setQuestions(updated);
+    };
+
     useEffect(() => {
         if (isOpen) {
             document.body.classList.add('modal-open');
@@ -396,13 +458,35 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
 
     const isBusy = savingDraft || continuing || publishing || deleting;
     const isTitleEmpty = !title.trim();
+    const totalQuestions = questions.reduce((sum, n) => sum + n, 0);
+
+    const summaryParts = [];
+    questions.forEach((q, i) => { if (q > 0) summaryParts.push(`${bloomLevels[i]}: ${q}`); });
+    const summaryText = summaryParts.length > 0 ? ` — ${summaryParts.join(', ')}` : '';
 
     return (
-        <div className="modal-backdrop" onClick={() => !isBusy && onClose()}>
+        <div
+            className="modal-backdrop"
+            onClick={() => {
+                if (!isBusy) {
+                    resetBloom();
+                    onClose();
+                }
+            }}
+        >
             <div className="quiz-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Close button */}
-                <button className="modal-close-btn" onClick={() => !isBusy && onClose()} title="Close" disabled={isBusy}>
-                    <X size={20} />
+                <button
+                    className="modal-close-btn"
+                    onClick={() => {
+                        if (!isBusy) {
+                            resetBloom();
+                            onClose();
+                        }
+                    }}
+                    title="Close"
+                    disabled={isBusy}
+                >                    <X size={20} />
                 </button>
 
 
@@ -437,7 +521,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                     <input
                                         type="text"
                                         className="title-input"
-                                        placeholder={quizData?.status === 'published' ? 'Untitled' : '*Untitled'}
+                                        placeholder={quizData?.status === 'published' ? 'Untitled' : '*Insert title here'}
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
                                     />
@@ -608,17 +692,73 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                             value={specialization}
                                             onChange={(e) => setSpecialization(e.target.value)}
                                         >
-                                            <option value="Filipino">Filipino</option>
-                                            <option value="Mathematics">Mathematics</option>
                                             <option value="English">English</option>
-                                            <option value="Science">Science</option>
+                                            <option value="Filipino">Filipino</option>
+                                            <option value="Biological Science">Biological Science</option>
+                                            <option value="Physical Science">Physical Science</option>
+                                            <option value="Mathematics">Mathematics</option>
                                             <option value="Social Studies">Social Studies</option>
-                                            <option value="Others">Others</option>
+                                            <option value="Values Education">Values Education</option>
+                                            <option value="MAPEH">MAPEH</option>
+                                            <option value="Agriculture">Agriculture</option>
+                                            <option value="TLE">TLE</option>
                                         </select>
                                     </div>
                                 )}
                             </div>
                         )}
+
+                        {/* Blooms Question Count (AI Mode Only) - 6 parts*/}
+                        {!viewOnly && activeTab === 'ai' && (
+                            <div className="form-group">
+                                <label>Number of Questions per Bloom's Level</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {bloomLevels.map((level, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '0.5rem 0.75rem',
+                                                border: '2px solid var(--charcoal)',
+                                                borderRadius: '0.6rem',
+                                                background: 'white'
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: 800 }}>{level}</span>
+
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={10}
+                                                value={questions[index]}
+                                                onChange={(e) => handleQuestionChange(index, e.target.value)}
+                                                style={{
+                                                    width: '60px',
+                                                    height: '40px',
+                                                    textAlign: 'center',
+                                                    fontWeight: 800,
+                                                    border: '2px solid var(--charcoal)',
+                                                    borderRadius: '0.4rem'
+                                                }}
+                                                disabled={totalQuestions >= 60 && questions[index] === 0}
+                                            />
+                                        </div>
+                                    ))}
+                                    <p style={{
+                                        marginTop: '0.5rem',
+                                        fontWeight: 800,
+                                        fontSize: '0.85rem',
+                                        color: totalQuestions >= 60 ? 'green' : 'var(--charcoal)'
+                                    }}>
+                                        Total: {totalQuestions} / 60{summaryText}
+                                        {totalQuestions >= 60 && ' (Maximum reached)'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
 
                         {/* Description or Prompt */}
                         <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -631,13 +771,14 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                 <>
                                     <textarea
                                         className="neo-textarea"
-                                        placeholder="Generate LET exam questions about Filipino grammar focusing on pang-uri and pang-abay."
+                                        placeholder="Generate LET exam questions about Science focusing on Photosynthesis."
                                         value={promptText}
                                         onChange={(e) => setPromptText(e.target.value)}
                                         style={{ flex: 1, minHeight: '120px' }}
                                     />
 
-                                    <div className="reference-files-container" style={{ flexShrink: 0, marginTop: '1rem', padding: '1rem', border: '2px dashed var(--charcoal)', borderRadius: '0.75rem', background: '#fafafa' }}>
+                                    <label>Reference Files</label>
+                                    <div className="reference-files-container" style={{ flexShrink: 0, marginTop: '0rem', padding: '1rem', border: '2px dashed var(--charcoal)', borderRadius: '0.75rem', background: '#fafafa' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: referenceFiles.length > 0 ? '1rem' : '0' }}>
                                             <label style={{ margin: 0, fontWeight: 800 }}>Reference Files (Max 2, 10MB each)</label>
                                             {referenceFiles.length === 0 && (

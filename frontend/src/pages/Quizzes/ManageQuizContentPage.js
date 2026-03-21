@@ -53,6 +53,30 @@ const ManageQuizContentPage = () => {
         }
     };
 
+    // ── POLLING FOR GENERATING STATE ──
+    useEffect(() => {
+        let pollInterval;
+        let timeoutId;
+        
+        if (quiz?.status === 'generating') {
+            showToast('AI is generating your quiz in the background...');
+            pollInterval = setInterval(() => {
+                loadData();
+            }, 3000);
+            
+            timeoutId = setTimeout(() => {
+                if (pollInterval) clearInterval(pollInterval);
+                setQuiz(prev => ({ ...prev, status: 'error' }));
+                showToast('Generation timed out. Please try again.');
+            }, 5 * 60 * 1000); // 5 minutes
+        }
+        
+        return () => {
+            if (pollInterval) clearInterval(pollInterval);
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [quiz?.status, id]);
+
     // ── AUTOSAVE & BEFOREUNLOAD ──
     const quizRef = useRef(quiz);
     useEffect(() => {
@@ -532,7 +556,43 @@ const ManageQuizContentPage = () => {
     if (loading) return <div className="manage-message">Loading Quiz Content...</div>;
     if (!quiz) return <div className="manage-message error">Quiz not found.</div>;
 
+    if (quiz.status === 'generating') {
+        return (
+            <div className="manage-message">
+                <style>{`
+                    .generating-container {
+                        display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px;
+                        gap: 1rem; color: var(--charcoal);
+                    }
+                    .generating-spinner {
+                        border: 4px solid #f3f3f3; border-top: 4px solid var(--blue); border-radius: 50%;
+                        width: 40px; height: 40px; animation: spin 1s linear infinite;
+                    }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                `}</style>
+                <div className="generating-container">
+                    <div className="generating-spinner"></div>
+                    <h2>Generating your quiz...</h2>
+                    <p>This may take a few minutes. You can safely leave this page and come back later.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (quiz.status === 'error') {
+        return (
+            <div className="manage-message">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <h2 style={{ color: '#E53935' }}>Generation Failed</h2>
+                    <p>There was an error generating your quiz, or it timed out.</p>
+                    <button className="neo-btn" onClick={() => navigate('/dashboard')}>Return to Dashboard</button>
+                </div>
+            </div>
+        );
+    }
+
     const isPublished = quiz.status === 'published';
+    const isAIGenerated = quiz.generation_type === 'ai';
 
     return (
         <div className="manage-quiz-page">
@@ -588,6 +648,7 @@ const ManageQuizContentPage = () => {
                             className="config-number-input"
                             value={quiz.time_limit_minutes || ''}
                             onChange={(e) => handleQuizChange('time_limit_minutes', e.target.value ? parseInt(e.target.value) : null)}
+                            disabled={isAIGenerated}
                         />
                     </div>
                     <div className="control-group checkbox-row">
@@ -597,6 +658,7 @@ const ManageQuizContentPage = () => {
                             className="config-checkbox"
                             checked={quiz.show_answers_at_end !== false}
                             onChange={e => handleQuizChange('show_answers_at_end', e.target.checked)}
+                            disabled={isAIGenerated}
                         />
                         <label htmlFor="showAnswers">Show Answers at End</label>
                     </div>
@@ -607,6 +669,7 @@ const ManageQuizContentPage = () => {
                             className="config-checkbox"
                             checked={quiz.can_backtrack !== false}
                             onChange={e => handleQuizChange('can_backtrack', e.target.checked)}
+                            disabled={isAIGenerated}
                         />
                         <label htmlFor="allowBacktrack">Allow Backtracking</label>
                     </div>
@@ -623,14 +686,14 @@ const ManageQuizContentPage = () => {
                         <div
                             key={item.id}
                             className={`quiz-item-card ${isEditing ? 'editing' : ''}`}
-                            draggable={!isEditing}
-                            onDragStart={(e) => handleOuterDragStart(e, idx)}
-                            onDragEnter={(e) => handleOuterDragEnter(e, idx)}
-                            onDragEnd={handleOuterDragEnd}
+                            draggable={!isEditing && !isAIGenerated}
+                            onDragStart={(e) => !isAIGenerated && handleOuterDragStart(e, idx)}
+                            onDragEnter={(e) => !isAIGenerated && handleOuterDragEnter(e, idx)}
+                            onDragEnd={isAIGenerated ? undefined : handleOuterDragEnd}
                         >
                             <div className="card-header">
                                 <div className="card-header-left">
-                                    <span className="drag-handle" title="Drag to reorder">☰</span>
+                                    {!isAIGenerated && <span className="drag-handle" title="Drag to reorder">☰</span>}
                                     <span className="question-number">Q{idx + 1}</span>
                                     {isEditing && (
                                         <>
@@ -663,10 +726,14 @@ const ManageQuizContentPage = () => {
                                     {!isEditing && (
                                         <>
                                             <span className="pts-badge">{item.points} pt{item.points > 1 ? 's' : ''}</span>
-                                            <button className="neo-btn sm" onClick={() => startEditing(item.id, item)}>Edit</button>
+                                            {!isAIGenerated && (
+                                                <button className="neo-btn sm" onClick={() => startEditing(item.id, item)}>Edit</button>
+                                            )}
                                         </>
                                     )}
-                                    <button className="neo-btn sm danger" onClick={() => handleDeleteItem(item.id)}>Delete</button>
+                                    {!isAIGenerated && (
+                                        <button className="neo-btn sm danger" onClick={() => handleDeleteItem(item.id)}>Delete</button>
+                                    )}
                                 </div>
                             </div>
 
@@ -767,9 +834,17 @@ const ManageQuizContentPage = () => {
                     );
                 })}
 
-                <button className="neo-btn primary full-width" onClick={handleAddItem}>
-                    + ADD NEW QUESTION
-                </button>
+                {isAIGenerated && (
+                    <div className="manage-message" style={{ padding: '2rem', textAlign: 'center', color: '#666', border: '1px dashed #ccc', borderRadius: '8px' }}>
+                        This quiz was generated by TinkerBot (AI). The questions and their contents are locked to maintain the AI's intended difficulty and focus. 
+                        You can still manage its basic settings from the dashboard.
+                    </div>
+                )}
+                {!isAIGenerated && (
+                    <button className="neo-btn primary full-width" onClick={handleAddItem}>
+                        + ADD NEW QUESTION
+                    </button>
+                )}
             </div>
 
             {/* Unpublish Modal */}
