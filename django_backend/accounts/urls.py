@@ -8,7 +8,9 @@ urlpatterns = [
 
     # Auth
     path('register', views.register_view, name='register'),
+    path('register/verify-otp/', views.verify_registration_otp_view, name='verify-registration-otp'),
     path('login', views.login_view, name='login'),
+    path('login/verify-otp/', views.verify_otp_view, name='verify-otp'),
     path('logout', views.logout_view, name='logout'),
     path('user', views.current_user_view, name='current-user'),
 

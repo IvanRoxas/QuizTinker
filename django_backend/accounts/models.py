@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+import random, string
 
 class User(AbstractUser):
     """Extended user model with profile fields."""
@@ -95,3 +95,47 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=['user', 'read_at']),
         ]
+
+class OTPCode(models.Model):
+    """
+    Stores a one-time password for a user during the 2FA login flow.
+    Only one active OTP exists per user at a time (old ones are replaced).
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='otp_code',
+    )
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+ 
+    OTP_EXPIRY_SECONDS = 300  # 5 minutes
+ 
+    class Meta:
+        db_table = 'otp_codes'
+ 
+    @classmethod
+    def generate_for(cls, user):
+        """
+        Generate a fresh 6-digit OTP for the given user, replacing any
+        existing one. Returns the OTPCode instance (code is accessible via
+        instance.code).
+        """
+        code = ''.join(random.choices(string.digits, k=6))
+        obj, _ = cls.objects.update_or_create(
+            user=user,
+            defaults={'code': code},
+        )
+        return obj
+ 
+    def is_valid(self, submitted_code):
+        """
+        Returns True if the submitted code matches and hasn't expired.
+        """
+        from django.utils import timezone
+        import datetime
+ 
+        age = timezone.now() - self.created_at
+        if age.total_seconds() > self.OTP_EXPIRY_SECONDS:
+            return False
+        return self.code == submitted_code

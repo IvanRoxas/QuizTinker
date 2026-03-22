@@ -1,3 +1,4 @@
+// src/context/AuthContext.js  — FULL REPLACEMENT
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
 
@@ -48,18 +49,15 @@ export const AuthProvider = ({ children }) => {
             (response) => response,
             (error) => {
                 if (error.response && error.response.status === 401) {
-                    // Session expired or unauthorized
                     setUser(null);
                     sessionStorage.removeItem('token');
                     sessionStorage.removeItem('user');
 
-                    // If we are actively submitting a quiz, don't force a redirect yet.
                     if (window.isSubmittingQuiz) {
-                        console.warn('[AUTH) 401 detected during quiz submission. Suppressing hard redirect.');
+                        console.warn('[AUTH] 401 detected during quiz submission. Suppressing hard redirect.');
                         return Promise.reject(error);
                     }
 
-                    // Force redirect, depending on routing setup
                     if (window.location.pathname !== '/auth' && window.location.pathname !== '/') {
                         window.location.href = '/auth';
                     }
@@ -73,10 +71,36 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
+    /**
+     * login()
+     * - If the server returns { otp_required: true }, we return that signal to
+     *   Auth.js so it can switch to the OTP screen.
+     * - If it returns { user, token } directly (e.g. future bypass), we log in.
+     */
     const login = async (email, password) => {
         const response = await axiosClient.post('/api/login', { email, password });
+
+        if (response.data.otp_required) {
+            // Signal to the UI that the OTP step is needed
+            return { otpRequired: true, email: response.data.email };
+        }
+
+        // Direct login (fallback / future use)
         const { user, token } = response.data;
-        
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        return { otpRequired: false };
+    };
+
+    /**
+     * otpVerify()
+     * Submits the 6-digit OTP. On success, stores the token and sets the user.
+     */
+    const otpVerify = async (email, otp) => {
+        const response = await axiosClient.post('/api/login/verify-otp/', { email, otp });
+        const { user, token } = response.data;
+
         sessionStorage.setItem('token', token);
         sessionStorage.setItem('user', JSON.stringify(user));
         setUser(user);
@@ -84,28 +108,44 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (data) => {
         const response = await axiosClient.post('/api/register', data);
-        const { user, token } = response.data;
         
-        // We log them in directly now that we have the token
+        if (response.data.otp_required) {
+            return { otpRequired: true, email: response.data.email };
+        }
+
+        const { user, token } = response.data;
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        return { otpRequired: false };
+    };
+
+    /**
+     * registerOtpVerify()
+     * Submits the 6-digit OTP for new account registration.
+     */
+    const registerOtpVerify = async (email, otp) => {
+        const response = await axiosClient.post('/api/register/verify-otp/', { email, otp });
+        const { user, token } = response.data;
+
         sessionStorage.setItem('token', token);
         sessionStorage.setItem('user', JSON.stringify(user));
         setUser(user);
     };
 
     const logout = async () => {
-        await axiosClient.post('/api/logout').catch(() => {});
+        await axiosClient.post('/api/logout').catch(() => { });
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
         setUser(null);
     };
 
     const [friendsVersion, setFriendsVersion] = useState(0);
-
     const bumpFriendsVersion = () => setFriendsVersion(prev => prev + 1);
 
     return (
         <AuthContext.Provider value={{
-            user, loading, login, register, logout,
+            user, loading, login, otpVerify, register, registerOtpVerify, logout,
             updateUserContext, showToast,
             friendsVersion, bumpFriendsVersion
         }}>

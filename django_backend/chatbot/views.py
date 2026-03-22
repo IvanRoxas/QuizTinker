@@ -12,9 +12,11 @@ from django.conf import settings
 from django.db.models import Min, Max, OuterRef, Subquery
 
 from rest_framework import status
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.response import Response
+
+from quiztinker.throttles import GenerativeRateThrottle
 
 from .models import ChatMessage
 from .serializers import ChatMessageSerializer
@@ -321,6 +323,7 @@ def _truncate(text: str, max_chars: int = _MAX_FILE_CHARS) -> str:
 # ---------------------------------------------------------------------------
 
 @api_view(["POST"])
+@throttle_classes([GenerativeRateThrottle])
 @parser_classes([JSONParser])
 def chat_view(request):
     """
@@ -455,6 +458,7 @@ def chat_view(request):
 # ---------------------------------------------------------------------------
 
 @api_view(["POST"])
+@throttle_classes([GenerativeRateThrottle])
 @parser_classes([MultiPartParser, FormParser])
 def upload_view(request):
     """
@@ -624,6 +628,7 @@ def delete_view(request, session_id=None, message_id=None):
     if message_id is not None:
         try:
             msg = ChatMessage.objects.get(id=message_id, user=user)
+            logger.info(f"[AUDIT] User {request.user.id} deleted ChatMessage {message_id}")
             msg.delete()
             return Response({"deleted": 1}, status=status.HTTP_200_OK)
         except ChatMessage.DoesNotExist:
