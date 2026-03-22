@@ -11,9 +11,11 @@ from django.forms.models import model_to_dict
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
+
+from quiztinker.throttles import GenerativeRateThrottle
 
 from google import genai
 from google.genai import types
@@ -1038,6 +1040,7 @@ def quiz_detail_view(request, quiz_id):
 
 
 @api_view(["POST"])
+@throttle_classes([GenerativeRateThrottle])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def ai_generate_quiz(request):
     """
@@ -1054,6 +1057,7 @@ def ai_generate_quiz(request):
       being embedded in the Gemini prompt. Sanitization is logged but does
       NOT block the request — the cleaned value is used instead.
     """
+    logger.info(f"[AUDIT] User {request.user.id if request.user.is_authenticated else 'Anon'} triggered AI Quiz Generation.")
     quiz = None
     try:
         data = request.data
@@ -1663,6 +1667,10 @@ def quiz_item_list_create_view(request, quiz_id):
         quiz = Quiz.objects.get(id=quiz_id)
     except Quiz.DoesNotExist:
         return Response({"message": "Quiz not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET" and quiz.author != request.user and not request.user.is_superuser:
+        logger.warning(f"[SECURITY] IDOR attempt blocked. User {request.user.id} tried to fetch raw items for Quiz {quiz.id}")
+        return Response({"message": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == "GET":
         items      = quiz.items.all().order_by("sort_order", "id")

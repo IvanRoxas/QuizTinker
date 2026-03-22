@@ -98,6 +98,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user':       '200/hour',
+        'generative': '10/hour',
+    },
     'EXCEPTION_HANDLER': 'accounts.exceptions.custom_exception_handler',
 }
 
@@ -157,13 +164,37 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_AGE = 43200 # 12 hours in seconds
 SESSION_SAVE_EVERY_REQUEST = True # Refresh session on activity
 
+# Security headers
+SECURE_BROWSER_XSS_FILTER      = True
+SECURE_CONTENT_TYPE_NOSNIFF    = True
+X_FRAME_OPTIONS                = 'DENY'
+
+# Only enforce SSL and HSTS in production
+SECURE_SSL_REDIRECT            = not DEBUG
+SECURE_HSTS_SECONDS            = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD            = not DEBUG
+
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
-    'axes.backends.AxesStandaloneBackend',
+    'axes.backends.AxesBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ---------- Email Configuration ----------
+if env('EMAIL_HOST_USER', default=''):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+    EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+    EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@quiztinker.com'
 
 # ---------- Django-Q2 ----------
 Q_CLUSTER = {

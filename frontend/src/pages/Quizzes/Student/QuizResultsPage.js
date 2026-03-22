@@ -16,8 +16,7 @@ const getOrdinalSuffix = (i) => {
 const getFeedbackRemark = (pct) => {
     if (pct >= 90) return { text: "Phenomenal! You've practically mastered this material.", color: '#22c55e' }; // Green
     if (pct >= 75) return { text: "Great job! You have a very solid understanding of these concepts.", color: '#84cc16' }; // Light Green
-    if (pct >= 60) return { text: "Good effort. You passed, but reviewing the feedback below will help solidify your knowledge.", color: '#eab308' }; // Yellow
-    if (pct >= 40) return { text: "Not quite there. Review the material closely and try again to improve your score.", color: '#f97316' }; // Orange
+    if (pct >= 60) return { text: "Not quite there. Review the material closely and try again to hit the passing mark.", color: '#f97316' }; // Orange
     return { text: "Tough break. Maybe take some time to study the correct answers below before your next attempt.", color: '#ef4444' }; // Red
 };
 
@@ -396,7 +395,7 @@ const QuizResultsPage = () => {
                                     const radius = 40;
                                     const circumference = 2 * Math.PI * radius;
                                     const strokeDashoffset = circumference - (percentage / 100) * circumference;
-                                    const circleColor = percentage >= 60 ? '#22c55e' : '#ef4444'; // Green if passed, Red if failed
+                                    const circleColor = percentage >= 75 ? '#22c55e' : '#ef4444'; // Green if passed, Red if failed
 
                                     return (
                                         <>
@@ -477,9 +476,9 @@ const QuizResultsPage = () => {
                                         <span className="stat-value">{score} / {totalPointsPossible}</span>
                                     </div>
 
-                                    <div className={`neo-stat-box ${percentage >= 60 ? 'passed' : 'failed'}`}>
+                                    <div className={`neo-stat-box ${percentage >= 75 ? 'passed' : 'failed'}`}>
                                         <span className="stat-label">STATUS</span>
-                                        <span className="stat-value">{percentage >= 60 ? 'PASSED' : 'FAILED'}</span>
+                                        <span className="stat-value">{percentage >= 75 ? 'PASSED' : 'FAILED'}</span>
                                     </div>
                                 </div>
 

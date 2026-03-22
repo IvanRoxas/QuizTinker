@@ -25,6 +25,12 @@ def custom_exception_handler(exc, context):
             elif response.status_code == 403 and isinstance(exc, NotAuthenticated):
                 # SessionAuthentication returns 401
                 response.status_code = 401
+            elif response.status_code == 429:
+                # Explicitly log Rate Limits
+                import logging
+                req = context.get('request')
+                actor = f"User {req.user.id}" if req and getattr(req, 'user', None) and req.user.is_authenticated else f"IP {req.META.get('REMOTE_ADDR')}"
+                logging.getLogger(__name__).warning(f"[SECURITY] Rate Limit Extra Triggered! {actor} on {req.path}")
 
         return response
     except Exception as e:

@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Friendship, Notification
+from .models import Friendship, Notification, OTPCode
 from .serializers import (
     LoginSerializer,
     NotificationSerializer,
@@ -56,53 +56,32 @@ def register_view(request):
     serializer.is_valid(raise_exception=True)
     d = serializer.validated_data
 
-    user = User.objects.create_user(
-        username=d['name'],
-        email=d['email'],
-        password=d['password'],
-        first_name=d['first_name'],
-        last_name=d['last_name'],
-    )
-    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    token, _ = Token.objects.get_or_create(user=user)
+    from django.core.cache import cache
+    import random, string
+
+    email = d['email']
+    otp = ''.join(random.choices(string.digits, k=6))
+    
+    cache.set(f"reg_otp_{email}", {
+        "otp": otp,
+        "data": d
+    }, timeout=300)
+
+    try:
+        from django_q.tasks import async_task
+        async_task('accounts.tasks.send_otp_email_task', email, otp)
+    except Exception:
+        from .tasks import send_otp_email_task
+        send_otp_email_task(email, otp)
 
     return Response({
-        'user': UserSerializer(user).data,
-        'token': token.key
-    }, status=status.HTTP_201_CREATED)
+        'otp_required': True,
+        'email': email,
+        'is_registering': True
+    }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def login_view(request):
-    serializer = LoginSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
 
-    # Django authenticates by username; look up the username from email.
-    user_obj = User.objects.filter(email=serializer.validated_data['email']).first()
-    if not user_obj:
-        return Response(
-            {'errors': {'email': ['The provided credentials do not match our records.']}},
-            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
-
-    user = authenticate(
-        request,
-        username=user_obj.username,
-        password=serializer.validated_data['password'],
-    )
-    if user is None:
-        return Response(
-            {'errors': {'email': ['The provided credentials do not match our records.']}},
-            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
-
-    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    token, _ = Token.objects.get_or_create(user=user)
-    return Response({
-        'user': UserSerializer(user).data,
-        'token': token.key
-    })
 
 
 @api_view(['POST'])
@@ -627,3 +606,153 @@ def delete_notification_view(request, notification_id):
         return Response({'message': 'Notification deleted.'})
     except Notification.DoesNotExist:
         return Response({'message': 'Notification not found.'}, status=404)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    serializer = LoginSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+ 
+    # Look up user by email
+    user_obj = User.objects.filter(email=serializer.validated_data['email']).first()
+    if not user_obj:
+        return Response(
+            {'errors': {'email': ['The provided credentials do not match our records.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # Verify password
+    user = authenticate(
+        request,
+        username=user_obj.username,
+        password=serializer.validated_data['password'],
+    )
+    if user is None:
+        return Response(
+            {'errors': {'email': ['The provided credentials do not match our records.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # ── 2FA: Generate OTP and send via email (async) ──────────────────────────
+    otp = OTPCode.generate_for(user)
+ 
+    try:
+        from django_q.tasks import async_task
+        async_task(
+            'accounts.tasks.send_otp_email_task',
+            user.email,
+            otp.code,
+        )
+    except Exception:
+        # Fallback: send synchronously if Django Q2 worker is not running
+        from .tasks import send_otp_email_task
+        send_otp_email_task(user.email, otp.code)
+ 
+    # Do NOT issue the token yet — signal the frontend to show the OTP screen
+    return Response(
+        {'otp_required': True, 'email': user.email},
+        status=status.HTTP_200_OK,
+    )
+ 
+ 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp_view(request):
+    """
+    POST /api/login/verify-otp/
+    Body: { "email": "...", "otp": "123456" }
+ 
+    Validates the OTP. On success, logs the user in and returns the auth token.
+    On failure, returns a 422 with an error message.
+    """
+    email = request.data.get('email', '').strip()
+    submitted_otp = request.data.get('otp', '').strip()
+ 
+    if not email or not submitted_otp:
+        return Response(
+            {'errors': {'otp': ['Email and OTP code are required.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # Find user
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response(
+            {'errors': {'otp': ['Invalid or expired code.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # Find OTP record
+    try:
+        otp_record = OTPCode.objects.get(user=user)
+    except OTPCode.DoesNotExist:
+        return Response(
+            {'errors': {'otp': ['No OTP was requested. Please log in again.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # Validate code and expiry
+    if not otp_record.is_valid(submitted_otp):
+        return Response(
+            {'errors': {'otp': ['Invalid or expired code. Please try again.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+ 
+    # ── Success: delete OTP (one-time use), log in, return token ─────────────
+    otp_record.delete()
+ 
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    token, _ = Token.objects.get_or_create(user=user)
+ 
+    return Response({
+        'user': UserSerializer(user).data,
+        'token': token.key,
+    })
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_registration_otp_view(request):
+    """
+    POST /api/register/verify-otp/
+    Body: { "email": "...", "otp": "..." }
+    """
+    from django.core.cache import cache
+
+    email = request.data.get('email', '').strip()
+    submitted_otp = request.data.get('otp', '').strip()
+
+    if not email or not submitted_otp:
+        return Response({'errors': {'otp': ['Email and OTP code are required.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    cached = cache.get(f"reg_otp_{email}")
+    if not cached:
+        return Response({'errors': {'otp': ['Registration session expired. Please sign up again.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    
+    if str(cached['otp']) != str(submitted_otp):
+        return Response({'errors': {'otp': ['Invalid code. Please try again.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    d = cached['data']
+    
+    if User.objects.filter(email=d['email']).exists() or User.objects.filter(username=d['name']).exists():
+         return Response({'errors': {'general': ['User already exists.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    try:
+        user = User.objects.create_user(
+            username=d['name'],
+            email=d['email'],
+            password=d['password'],
+            first_name=d.get('first_name', ''),
+            last_name=d.get('last_name', '')
+        )
+    except Exception:
+        return Response({'errors': {'general': ['Failed to create account.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        
+    cache.delete(f"reg_otp_{email}")
+
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return Response({
+        'user': UserSerializer(user).data,
+        'token': token.key
+    }, status=status.HTTP_201_CREATED)
