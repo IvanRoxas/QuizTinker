@@ -122,10 +122,8 @@ class OTPCode(models.Model):
         instance.code).
         """
         code = ''.join(random.choices(string.digits, k=6))
-        obj, _ = cls.objects.update_or_create(
-            user=user,
-            defaults={'code': code},
-        )
+        cls.objects.filter(user=user).delete()
+        obj = cls.objects.create(user=user, code=code)
         return obj
  
     def is_valid(self, submitted_code):

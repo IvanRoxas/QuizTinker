@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { fetchQuizzes } from '../../api/quizApi';
 import QuizCard from '../../components/QuizCard';
 import CreateQuizModal from '../../components/CreateQuizModal';
-import { Plus, Search, ChevronDown } from 'lucide-react';
+import { Plus, Search, ChevronDown, Loader } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import './QuizzesPage.css';
 
@@ -23,7 +23,7 @@ const SORT_OPTIONS = [
 ];
 
 const QuizzesPage = () => {
-    const { user } = useAuth();
+    const { user, aiGenerating } = useAuth();
     const location = useLocation();
 
     const [quizzes, setQuizzes] = useState([]);
@@ -142,9 +142,32 @@ const QuizzesPage = () => {
         <main className="quizzes-page">
             <div className="quizzes-page-header">
                 <h1>{activeTab === 'published' ? 'All Quizzes' : 'My Drafts'}</h1>
-                <button className="create-quiz-btn-header" onClick={handleCreate}>
-                    <Plus size={20} />
-                    <span>Create a Draft</span>
+                <button
+                    className="create-quiz-btn-header"
+                    onClick={handleCreate}
+                    disabled={!!aiGenerating}
+                    title={aiGenerating ? `AI is generating "${aiGenerating}" — please wait.` : undefined}
+                    style={aiGenerating ? { opacity: 0.55, cursor: 'not-allowed' } : {}}
+                >
+                    {aiGenerating ? (
+                        <>
+                            <span style={{
+                                display: 'inline-block',
+                                width: '16px', height: '16px',
+                                border: '2.5px solid rgba(255,255,255,0.3)',
+                                borderTopColor: 'white',
+                                borderRadius: '50%',
+                                animation: 'qt-spin 0.8s linear infinite',
+                                flexShrink: 0,
+                            }} />
+                            <span>Generating…</span>
+                        </>
+                    ) : (
+                        <>
+                            <Plus size={20} />
+                            <span>Create a Draft</span>
+                        </>
+                    )}
                 </button>
             </div>
 

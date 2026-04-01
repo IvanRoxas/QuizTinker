@@ -29,7 +29,7 @@ const truncateFilename = (name, maxLength = 30) => {
 
 const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const navigate = useNavigate();
-    const { showToast, user } = useAuth();
+    const { showToast, user, aiGenerating, setAiGenerating } = useAuth();
     const fileRef = useRef(null);
     const referenceFileRef = useRef(null);
 
@@ -306,6 +306,13 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         setContinuing(true);
         try {
             if (activeTab === 'ai') {
+                // Block if another AI quiz is already being generated
+                if (aiGenerating) {
+                    showToast('Please wait — another quiz is still being generated.', 'error');
+                    setContinuing(false);
+                    return;
+                }
+
                 const totalQ = questions.reduce((sum, n) => sum + n, 0);
                 if (totalQ < 5) {
                     showToast('Minimum of 5 total questions required.', 'error');
@@ -357,6 +364,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                         bloom_distribution: distribution
                     };
                 }
+                setAiGenerating(title.trim());
                 const generatedData = await aiGenerateQuiz(aiData);
                 onSaved && onSaved(generatedData, 'create');
                 resetBloom();
@@ -377,6 +385,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             }
         } catch (err) {
             console.error(err);
+            setAiGenerating(null);
             showToast(err.response?.data?.message || 'Failed to save/generate.', 'error');
         } finally {
             setContinuing(false);

@@ -10,7 +10,7 @@ import './ManageQuizContentPage.css';
 const ManageQuizContentPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, showToast: globalShowToast, setAiGenerating } = useAuth();
 
     // ── STATE ──
     const [quiz, setQuiz] = useState(null);
@@ -59,16 +59,24 @@ const ManageQuizContentPage = () => {
         let timeoutId;
         
         if (quiz?.status === 'generating') {
-            showToast('AI is generating your quiz in the background...');
-            pollInterval = setInterval(() => {
-                loadData();
+            pollInterval = setInterval(async () => {
+                const prevStatus = quiz?.status;
+                await loadData();
+                // After loadData, quiz state updates asynchronously; we detect
+                // completion in the next render via a separate effect below.
             }, 3000);
             
             timeoutId = setTimeout(() => {
                 if (pollInterval) clearInterval(pollInterval);
                 setQuiz(prev => ({ ...prev, status: 'error' }));
+                setAiGenerating(null);
                 showToast('Generation timed out. Please try again.');
             }, 5 * 60 * 1000); // 5 minutes
+        }
+
+        // When status transitions away from 'generating', clear the global toast.
+        if (quiz?.status && quiz.status !== 'generating') {
+            setAiGenerating(null);
         }
         
         return () => {

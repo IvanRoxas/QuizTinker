@@ -102,8 +102,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user':       '200/hour',
-        'generative': '10/hour',
+        'user':       '2000/hour',
+        'generative': '1000/hour',
     },
     'EXCEPTION_HANDLER': 'accounts.exceptions.custom_exception_handler',
 }
