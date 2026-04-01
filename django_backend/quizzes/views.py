@@ -394,7 +394,10 @@ def _preprocess_prompt_with_gemini(prompt_text: str) -> dict:
                 response_mime_type="application/json",
             )
         )
-        result = json.loads(response.text.strip())
+        raw_text = (response.text or "").strip()
+        if not raw_text:
+            return {}
+        result = json.loads(raw_text)
         if not isinstance(result, dict):
             return {}
         nq = result.get("num_questions")
@@ -821,6 +824,8 @@ def _run_generation(
     )
 
     def _parse_response(raw: str) -> list:
+        if not raw:
+            return []
         text = raw.strip()
         if not text:
             return []
@@ -1148,18 +1153,6 @@ def ai_generate_quiz(request):
 
         num_questions = total_questions
 
-        # ── Topic focus — resolve conflict with specialization ────────────────
-        raw_topic_focus = nlp_topic if nlp_topic else (
-            _strip_quantity_instructions(prompt_text) if prompt_text else ""
-        )
-        sanitized_topic, _ = _sanitize_user_text(raw_topic_focus, _MAX_TOPIC_LEN, "topic_focus")
-        topic_focus, topic_conflicted = _resolve_topic_focus(sanitized_topic, specialization)
-        if topic_conflicted:
-            logger.info(
-                f"[AI QUIZ] Topic focus cleared due to specialization conflict. "
-                f"Quiz will cover '{specialization}' broadly."
-            )
-
         # ── Reference files ───────────────────────────────────────────────────
         reference_file_1 = request.FILES.get("reference_file_1")
         reference_file_2 = request.FILES.get("reference_file_2")
@@ -1202,6 +1195,18 @@ def ai_generate_quiz(request):
                 logger.info(
                     f"[AI QUIZ] No specialization and no file → using category '{category}'"
                 )
+
+        # ── Topic focus — resolve conflict with specialization ────────────────
+        raw_topic_focus = nlp_topic if nlp_topic else (
+            _strip_quantity_instructions(prompt_text) if prompt_text else ""
+        )
+        sanitized_topic, _ = _sanitize_user_text(raw_topic_focus, _MAX_TOPIC_LEN, "topic_focus")
+        topic_focus, topic_conflicted = _resolve_topic_focus(sanitized_topic, specialization)
+        if topic_conflicted:
+            logger.info(
+                f"[AI QUIZ] Topic focus cleared due to specialization conflict. "
+                f"Quiz will cover '{specialization}' broadly."
+            )
 
         # lang_mode is kept in logs/meta for informational purposes only;
         # the prompt always generates English output regardless.

@@ -8,6 +8,18 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
+    // aiGenerating holds the quiz title while AI generation is in progress, or null.
+    const [aiGenerating, setAiGenerating] = useState(() => {
+        return sessionStorage.getItem('aiGenerating') || null;
+    });
+
+    useEffect(() => {
+        if (aiGenerating) {
+            sessionStorage.setItem('aiGenerating', aiGenerating);
+        } else {
+            sessionStorage.removeItem('aiGenerating');
+        }
+    }, [aiGenerating]);
 
     // Global Toast helper
     const showToast = (message, type = 'success') => {
@@ -147,9 +159,53 @@ export const AuthProvider = ({ children }) => {
         <AuthContext.Provider value={{
             user, loading, login, otpVerify, register, registerOtpVerify, logout,
             updateUserContext, showToast,
-            friendsVersion, bumpFriendsVersion
+            friendsVersion, bumpFriendsVersion,
+            aiGenerating, setAiGenerating,
         }}>
             {children}
+
+            {/* Persistent AI Generation Toast */}
+            {aiGenerating && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: toast ? '80px' : '20px',
+                    right: '20px',
+                    background: '#ffffff',
+                    color: '#1e1e1e',
+                    padding: '14px 20px',
+                    borderRadius: '12px',
+                    boxShadow: '4px 4px 0px #1e1e1e',
+                    border: '3px solid #1e1e1e',
+                    zIndex: 9998,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    maxWidth: '320px',
+                    animation: 'fadeIn 0.3s ease-out',
+                }}>
+                    <div style={{
+                        width: '18px', height: '18px', flexShrink: 0,
+                        borderRadius: '50%',
+                        border: '3px solid #e2e8f0',
+                        borderTopColor: '#5A82E6',
+                        animation: 'qt-spin 0.8s linear infinite',
+                    }} />
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#5A82E6', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '2px' }}>
+                            Generating Quiz
+                        </div>
+                        <div style={{
+                            fontSize: '0.9rem', fontWeight: 700,
+                            color: '#1e1e1e',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                            {aiGenerating}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Ephemeral Toast */}
             {toast && (
                 <div style={{
                     position: 'fixed', bottom: '20px', right: '20px',
@@ -162,6 +218,13 @@ export const AuthProvider = ({ children }) => {
                     {toast.message}
                 </div>
             )}
+
+            {/* Keyframe injection */}
+            <style>{`
+                @keyframes qt-spin {
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </AuthContext.Provider>
     );
 };
