@@ -209,7 +209,7 @@ const ManageQuizContentPage = () => {
     const handleAddItem = async () => {
         try {
             const formData = new FormData();
-            formData.append('question', '');
+            formData.append('question', 'New Question');
             formData.append('type', 'identification');
             formData.append('sort_order', items.length);
             const newItem = await createQuizItem(id, formData);

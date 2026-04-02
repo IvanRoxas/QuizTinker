@@ -190,7 +190,7 @@
 /* Search bar styles (scoped to .quizzes-page for consistency) */
 .quizzes-page .quiz-inline-search {
     position: relative;
-    flex: 1;
+    width: 100%;
     max-width: none;
     min-width: 200px;
 }
