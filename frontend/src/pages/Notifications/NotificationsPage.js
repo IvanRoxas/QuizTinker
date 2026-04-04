@@ -50,7 +50,7 @@ const NotificationsPage = () => {
 
             if (res.data.count !== undefined) {
                 // Determine current page from URL
-                const urlObj = new URL(url, 'http://localhost');
+                const urlObj = new URL(url, window.location.origin);
                 const pageNum = parseInt(urlObj.searchParams.get('page')) || 1;
 
                 setPageInfo({
