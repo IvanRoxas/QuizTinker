@@ -238,7 +238,7 @@ AXES_LOCKOUT_TEMPLATE = None # Use default or create one
 AXES_RESET_ON_SUCCESS = True
 
 # Session Security
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=False)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
@@ -250,11 +250,14 @@ SECURE_BROWSER_XSS_FILTER      = True
 SECURE_CONTENT_TYPE_NOSNIFF    = True
 X_FRAME_OPTIONS                = 'DENY'
 
-# Only enforce SSL and HSTS in production
-SECURE_SSL_REDIRECT            = not DEBUG
-SECURE_HSTS_SECONDS            = 31536000 if not DEBUG else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_HSTS_PRELOAD            = not DEBUG
+# Only enforce SSL when explicitly enabled (after SSL cert is installed)
+SECURE_SSL_REDIRECT            = env.bool('SECURE_SSL_REDIRECT', default=False)
+SECURE_HSTS_SECONDS            = env.int('SECURE_HSTS_SECONDS', default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD            = SECURE_HSTS_SECONDS > 0
+
+# Trust Nginx's X-Forwarded-Proto header for HTTPS detection
+SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
