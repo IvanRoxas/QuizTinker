@@ -283,7 +283,7 @@ else:
 # ---------- Django-Q2 ----------
 Q_CLUSTER = {
     'name': 'QuizTinker',
-    'workers': 4,
+    'workers': env.int('Q_WORKERS', default=2),
     'recycle': 500,
     'timeout': 600,
     'compress': True,
@@ -294,3 +294,4 @@ Q_CLUSTER = {
     'redis': False,
     'orm': 'default',
 }
+
