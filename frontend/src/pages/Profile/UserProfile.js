@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import axiosClient from '../../api/axiosClient';
 import { User as UserIcon, ArrowLeft, UserMinus, UserPlus, Users, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getDisplayName } from '../../utils/userUtils';
+import mediaUrl from '../../utils/mediaUrl';
 import './UserProfile.css';
 
 // Skeleton for loading state
@@ -172,8 +173,8 @@ const UserProfile = () => {
         </div>
     );
 
-    const avatarUrl = profileData.avatar_url ? `http://localhost:8000${profileData.avatar_url}` : null;
-    const bannerUrl = profileData.banner_url ? `http://localhost:8000${profileData.banner_url}` : null;
+    const avatarUrl = profileData.avatar_url ? mediaUrl(profileData.avatar_url) : null;
+    const bannerUrl = profileData.banner_url ? mediaUrl(profileData.banner_url) : null;
     const username = profileData.name || 'user';
     const joinDate = new Date(profileData.created_at || Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -256,7 +257,7 @@ const UserProfile = () => {
                                     <div key={friend.id} className="up-friend-item" onClick={() => handleFriendClick(friend.id)}>
                                         <div className="up-friend-avatar">
                                             {friend.avatar_url
-                                                ? <img src={`http://localhost:8000${friend.avatar_url}`} alt="" />
+                                                ? <img src={mediaUrl(friend.avatar_url)} alt="" />
                                                 : <UserIcon size={18} />
                                             }
                                         </div>

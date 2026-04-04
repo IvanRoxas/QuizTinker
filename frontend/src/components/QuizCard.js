@@ -2,14 +2,11 @@ import React from 'react';
 import { User as UserIcon, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './QuizCard.css';
+import mediaUrl from '../utils/mediaUrl';
 
 const QuizCard = ({ quiz, onClick }) => {
     const navigate = useNavigate();
-    const imageUrl = quiz.preview_image
-        ? (quiz.preview_image.startsWith('http')
-            ? quiz.preview_image
-            : `http://localhost:8000${quiz.preview_image}`)
-        : null;
+    const imageUrl = mediaUrl(quiz.preview_image);
 
 
     const isDraft = quiz.status === 'draft';

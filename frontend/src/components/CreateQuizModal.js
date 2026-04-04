@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { createQuiz, updateQuiz, aiGenerateQuiz } from '../api/quizApi';
 import axiosClient from '../api/axiosClient';
 import './CreateQuizModal.css';
+import mediaUrl from '../utils/mediaUrl';
 
 // Helper to convert UTC ISO string to local YYYY-MM-DDTHH:mm for datetime-local input
 const formatToLocalDatetime = (isoString) => {
@@ -109,9 +110,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             setAuthorAvatar(quizData.author_avatar || '');
 
             if (quizData.preview_image) {
-                const url = quizData.preview_image.startsWith('http')
-                    ? quizData.preview_image
-                    : `http://localhost:8000${quizData.preview_image}`;
+                const url = mediaUrl(quizData.preview_image);
                 setImagePreview(url);
             }
         } else {
@@ -662,10 +661,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                                     {selectedFriends.includes(friend.id) && <Check size={14} />}
                                                 </div>
                                                 <img
-                                                    src={friend.avatar_url
-                                                        ? (friend.avatar_url.startsWith('http') ? friend.avatar_url : `http://localhost:8000${friend.avatar_url}`)
-                                                        : '/default-avatar.png'
-                                                    }
+                                                    src={mediaUrl(friend.avatar_url) || '/default-avatar.png'}
                                                     alt={friend.name || friend.username || 'User'}
                                                 />
                                                 <span>{friend.name || friend.username}</span>

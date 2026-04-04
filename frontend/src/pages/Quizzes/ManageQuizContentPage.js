@@ -6,6 +6,7 @@ import {
 } from '../../api/quizApi';
 import { useAuth } from '../../context/AuthContext';
 import './ManageQuizContentPage.css';
+import mediaUrl from '../../utils/mediaUrl';
 
 const ManageQuizContentPage = () => {
     const { id } = useParams();
@@ -759,7 +760,7 @@ const ManageQuizContentPage = () => {
                                             {draft.media ? (
                                                 <div className="media-preview">
                                                     {(() => {
-                                                        const mUrl = draft.media ? (draft.media.startsWith('http') ? draft.media : `http://localhost:8000${draft.media}`) : null;
+                                                        const mUrl = mediaUrl(draft.media);
                                                         return mUrl ? (
                                                             <img
                                                                 src={mUrl}
@@ -828,10 +829,10 @@ const ManageQuizContentPage = () => {
                                         <div className="readonly-question">{item.question}</div>
                                         {item.media && (
                                             <img
-                                                src={item.media.startsWith('http') ? item.media : `http://localhost:8000${item.media}`}
+                                                src={mediaUrl(item.media)}
                                                 alt="Item Media"
                                                 className="readonly-media clickable"
-                                                onClick={() => setLightboxImage(item.media.startsWith('http') ? item.media : `http://localhost:8000${item.media}`)}
+                                                onClick={() => setLightboxImage(mediaUrl(item.media))}
                                             />
                                         )}
                                         <div className="readonly-type">Type: {item.type.replace('_', ' ')}</div>

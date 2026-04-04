@@ -1,5 +1,8 @@
 from rest_framework.views import exception_handler
 from rest_framework.exceptions import NotAuthenticated
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def custom_exception_handler(exc, context):
@@ -27,14 +30,12 @@ def custom_exception_handler(exc, context):
                 response.status_code = 401
             elif response.status_code == 429:
                 # Explicitly log Rate Limits
-                import logging
                 req = context.get('request')
                 actor = f"User {req.user.id}" if req and getattr(req, 'user', None) and req.user.is_authenticated else f"IP {req.META.get('REMOTE_ADDR')}"
-                logging.getLogger(__name__).warning(f"[SECURITY] Rate Limit Extra Triggered! {actor} on {req.path}")
+                logger.warning(f"[SECURITY] Rate Limit Extra Triggered! {actor} on {req.path}")
 
         return response
     except Exception as e:
-        print(f"Error in custom_exception_handler: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error in custom_exception_handler: {e}", exc_info=True)
         raise e
+

@@ -8,6 +8,7 @@ import {
     Search, ChevronLeft, ChevronRight, ChevronUp, UserPlus, Check, X, Users, MessageSquare
 } from 'lucide-react';
 import { getDisplayName } from '../utils/userUtils';
+import mediaUrl from '../utils/mediaUrl';
 import QuizCalendar from './QuizCalendar';
 import CreateQuizModal from './CreateQuizModal';
 import '../pages/Dashboard.css';
@@ -146,7 +147,7 @@ const NotificationDropdown = ({ notifications, loadingNotifs, onAccept, onReject
                                     >
                                         <div className="notification-item-avatar">
                                             {notif.sender?.avatar_url
-                                                ? <img src={`http://localhost:8000${notif.sender.avatar_url}`} alt="" />
+                                                ? <img src={mediaUrl(notif.sender.avatar_url)} alt="" />
                                                 : <UserIcon size={18} />
                                             }
                                         </div>
@@ -301,7 +302,7 @@ const RightPanel = ({ isToggled, setIsToggled }) => {
         }
     }, []);
 
-    const avatarUrl = user?.avatar_url ? `http://localhost:8000${user.avatar_url}` : null;
+    const avatarUrl = user?.avatar_url ? mediaUrl(user.avatar_url) : null;
 
     // Fetch friends
     const fetchFriends = useCallback(async (showLoading = false) => {
@@ -592,7 +593,7 @@ const RightPanel = ({ isToggled, setIsToggled }) => {
                                     >
                                         <div className="user-list-avatar">
                                             {u.avatar_url
-                                                ? <img src={`http://localhost:8000${u.avatar_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                                ? <img src={mediaUrl(u.avatar_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                                                 : <UserIcon size={20} />
                                             }
                                         </div>

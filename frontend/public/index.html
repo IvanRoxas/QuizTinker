@@ -12,8 +12,8 @@
     script-src  'self' 'unsafe-inline';
     style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src    'self' https://fonts.gstatic.com;
-    img-src     'self' data: blob:;
-    connect-src 'self' http://localhost:8000 https://your-production-api.com;
+    img-src     'self' data: blob: https://quiztinker-media.s3.ap-southeast-2.amazonaws.com https://*.amazonaws.com;
+    connect-src 'self' http://localhost:8000 https://*.amazonaws.com;
     frame-ancestors 'none';
   ">
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/Brand Images/QT-logo.png" />
