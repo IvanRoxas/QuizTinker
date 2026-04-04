@@ -4,6 +4,7 @@ import axiosClient from '../../api/axiosClient';
 import { useAuth } from '../../context/AuthContext';
 import { Search, ChevronLeft, ChevronRight, X, UserIcon, Check } from 'lucide-react';
 import { getDisplayName } from '../../utils/userUtils';
+import mediaUrl from '../../utils/mediaUrl';
 import QuizCalendar from '../../components/QuizCalendar';
 import CreateQuizModal from '../../components/CreateQuizModal';
 import './NotificationsPage.css';
@@ -244,7 +245,7 @@ const NotificationsPage = () => {
                             <div key={notif.id} className="neo-notif-card flex-row">
                                 <div className="neo-notif-avatar">
                                     {notif.sender?.avatar_url
-                                        ? <img src={`http://localhost:8000${notif.sender.avatar_url}`} alt="" />
+                                        ? <img src={mediaUrl(notif.sender.avatar_url)} alt="" />
                                         : <div className="neo-avatar-placeholder"><UserIcon size={24} /></div>
                                     }
                                 </div>

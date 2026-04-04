@@ -73,10 +73,6 @@ class NotificationSerializer(serializers.ModelSerializer):
     sender_id = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = None  # Set dynamically to avoid circular imports
-        fields = ['id', 'user_id', 'sender_id', 'sender', 'notification_type', 'data', 'read_at', 'created_at']
-
-    def __init__(self, *args, **kwargs):
         from .models import Notification
-        self.Meta.model = Notification
-        super().__init__(*args, **kwargs)
+        model = Notification
+        fields = ['id', 'user_id', 'sender_id', 'sender', 'notification_type', 'data', 'read_at', 'created_at']

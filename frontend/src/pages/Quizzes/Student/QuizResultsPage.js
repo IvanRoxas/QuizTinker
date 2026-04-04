@@ -4,6 +4,7 @@ import axiosClient from '../../../api/axiosClient';
 import { useAuth } from '../../../context/AuthContext';
 import { getDisplayName } from '../../../utils/userUtils';
 import './QuizResultsPage.css';
+import mediaUrl from '../../../utils/mediaUrl';
 
 const getOrdinalSuffix = (i) => {
     const j = i % 10, k = i % 100;
@@ -137,7 +138,7 @@ const QuizResultsPage = () => {
         const ptsEarned = itemResult.points_earned || 0;
 
         // Fix media URL
-        const mediaUrl = item.media ? (item.media.startsWith('http') ? item.media : `http://localhost:8000${item.media}`) : null;
+        const itemMediaUrl = mediaUrl(item.media);
 
         const boxClass = isCorrect ? 'feedback-box correct' : 'feedback-box incorrect';
 
@@ -150,12 +151,12 @@ const QuizResultsPage = () => {
                     </div>
                 </div>
 
-                {mediaUrl && (
+                {itemMediaUrl && (
                     <img
-                        src={mediaUrl}
+                        src={itemMediaUrl}
                         alt="Question Media"
                         className="feedback-media clickable"
-                        onClick={() => setLightboxImage(mediaUrl)}
+                        onClick={() => setLightboxImage(itemMediaUrl)}
                     />
                 )}
 
@@ -292,7 +293,7 @@ const QuizResultsPage = () => {
                         rawUrl !== "null" &&
                         !rawUrl.includes("undefined");
 
-                    const finalUrl = hasImage ? (rawUrl.startsWith('http') ? rawUrl : `http://localhost:8000${rawUrl}`) : null;
+                    const finalUrl = hasImage ? mediaUrl(rawUrl) : null;
 
                     return (
                         <div className="hero-scoreboard">

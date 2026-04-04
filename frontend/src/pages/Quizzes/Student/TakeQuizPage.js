@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { fetchQuizToTake, submitQuizAttempt } from '../../../api/quizStudentApi';
 import './TakeQuizPage.css';
+import mediaUrl from '../../../utils/mediaUrl';
 
 const TakeQuizPage = () => {
     const { id } = useParams();
@@ -488,14 +489,14 @@ const TakeQuizPage = () => {
                 <div className="active-question-card">
                     <h2 className="take-question-text">{currentItem.question}</h2>
                     {(() => {
-                        const mediaUrl = currentItem.media ? (currentItem.media.startsWith('http') ? currentItem.media : `http://localhost:8000${currentItem.media}`) : null;
-                        if (!mediaUrl) return null;
+                        const itemMediaUrl = mediaUrl(currentItem.media);
+                        if (!itemMediaUrl) return null;
                         return (
                             <img
-                                src={mediaUrl}
+                                src={itemMediaUrl}
                                 alt="Question media"
                                 className="take-question-media clickable"
-                                onClick={() => setLightboxImage(mediaUrl)}
+                                onClick={() => setLightboxImage(itemMediaUrl)}
                             />
                         );
                     })()}

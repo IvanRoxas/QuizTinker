@@ -5,6 +5,7 @@ import { Bell, User as UserIcon, LogOut, Layout, BookOpen, Award, Camera, Edit2,
 import ImageCropModal from './ImageCropModal';
 import axiosClient from '../../api/axiosClient';
 import { getDisplayName } from '../../utils/userUtils';
+import mediaUrl from '../../utils/mediaUrl';
 import './Profile.css';
 
 const Profile = () => {
@@ -289,8 +290,8 @@ const Profile = () => {
         { icon: <Award size={24} /> },
     ];
 
-    const avatarUrl = profileData?.avatar_url ? `http://localhost:8000${profileData.avatar_url}` : null;
-    const bannerUrl = profileData?.banner_url ? `http://localhost:8000${profileData.banner_url}` : null;
+    const avatarUrl = profileData?.avatar_url ? mediaUrl(profileData.avatar_url) : null;
+    const bannerUrl = profileData?.banner_url ? mediaUrl(profileData.banner_url) : null;
 
     // Calendar Logic
     const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
@@ -422,7 +423,7 @@ const Profile = () => {
                             {friends.slice(friendsPage * FRIENDS_PER_PAGE, (friendsPage + 1) * FRIENDS_PER_PAGE).map(friend => (
                                 <div key={friend.id} className="friend-card">
                                     <div className="friend-avatar-wrapper">
-                                        <img src={friend.avatar_url ? `http://localhost:8000${friend.avatar_url}` : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop"} alt={getDisplayName(friend)} className="friend-card-avatar" />
+                                        <img src={mediaUrl(friend.avatar_url) || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop"} alt={getDisplayName(friend)} className="friend-card-avatar" />
                                     </div>
                                     <h4 className="friend-card-name">{getDisplayName(friend)}</h4>
                                     <div className="friend-card-actions">

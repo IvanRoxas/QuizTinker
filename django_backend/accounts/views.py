@@ -1,3 +1,4 @@
+import io
 import json
 import uuid
 
@@ -29,7 +30,9 @@ User = get_user_model()
 # ---------------------------------------------------------------------------
 
 def _media_path(*parts):
-    """Return the full path to a media sub-directory, creating it if needed."""
+    """Return the full path to a media sub-directory, creating it if needed.
+    Only used when saving to local filesystem (USE_S3=False).
+    """
     path = settings.MEDIA_ROOT
     for p in parts:
         path = path / p
@@ -183,7 +186,9 @@ def update_security_view(request):
 
 
 def _process_image(file, crop_json, target_size, subfolder):
-    """Crop, resize, convert to WebP, save and return the URL path."""
+    """Crop, resize, convert to WebP, and save via default_storage.
+    Returns the URL path (local: /media/..., S3: https://bucket.s3.../).
+    """
     img = PILImage.open(file)
 
     # Crop if data is provided
@@ -203,27 +208,62 @@ def _process_image(file, crop_json, target_size, subfolder):
     img = img.convert('RGB')
     img = img.resize(target_size, PILImage.LANCZOS)
 
-    # Save as WebP
+    # Save as WebP into a buffer
     filename = f'{uuid.uuid4().hex}.webp'
-    save_dir = _media_path(subfolder)
-    filepath = save_dir / filename
-    img.save(str(filepath), 'WEBP', quality=80)
+    buffer = io.BytesIO()
+    img.save(buffer, 'WEBP', quality=80)
+    buffer.seek(0)
 
-    return f'/media/{subfolder}/{filename}'
+    if getattr(settings, 'USE_S3', False):
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        s3_path = f'{subfolder}/{filename}'
+        saved_name = default_storage.save(s3_path, ContentFile(buffer.read()))
+        return default_storage.url(saved_name)
+    else:
+        save_dir = _media_path(subfolder)
+        filepath = save_dir / filename
+        with open(str(filepath), 'wb') as f:
+            f.write(buffer.read())
+        return f'/media/{subfolder}/{filename}'
+
+
+def _delete_old_media(url_path):
+    """Delete a previously uploaded media file (works for both local and S3)."""
+    if not url_path:
+        return
+    if getattr(settings, 'USE_S3', False):
+        from django.core.files.storage import default_storage
+        # S3 URLs are absolute; extract the storage path
+        # e.g. https://bucket.s3.region.amazonaws.com/media/avatars/abc.webp → avatars/abc.webp
+        if url_path.startswith('http'):
+            # Find the part after /media/
+            marker = '/media/'
+            idx = url_path.find(marker)
+            if idx != -1:
+                rel_path = url_path[idx + len(marker):]
+            else:
+                return
+        else:
+            rel_path = url_path.removeprefix('/media/')
+        try:
+            if default_storage.exists(rel_path):
+                default_storage.delete(rel_path)
+        except Exception:
+            pass  # Don't crash on cleanup failure
+    else:
+        import os
+        local_path = settings.MEDIA_ROOT / url_path.removeprefix('/media/')
+        if local_path.exists():
+            os.remove(str(local_path))
 
 
 @api_view(['POST'])
 def upload_images_view(request):
     user = request.user
-    import os
 
     if 'avatar' in request.FILES:
-        # Delete old file
-        if user.avatar_url:
-            old = settings.MEDIA_ROOT / user.avatar_url.lstrip('/media/')
-            if old.exists():
-                os.remove(str(old))
-
+        _delete_old_media(user.avatar_url)
         user.avatar_url = _process_image(
             request.FILES['avatar'],
             request.data.get('crop'),
@@ -232,11 +272,7 @@ def upload_images_view(request):
         )
 
     if 'banner' in request.FILES:
-        if user.banner_url:
-            old = settings.MEDIA_ROOT / user.banner_url.lstrip('/media/')
-            if old.exists():
-                os.remove(str(old))
-
+        _delete_old_media(user.banner_url)
         user.banner_url = _process_image(
             request.FILES['banner'],
             request.data.get('banner_crop'),

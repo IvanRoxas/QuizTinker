@@ -10,3 +10,6 @@ pdfplumber>=0.9.0
 python-docx>=0.8.11
 python-pptx>=0.6.21
 django-q2>=1.6.0
+gunicorn>=21.2.0
+django-storages>=1.14.0
+boto3>=1.34.0

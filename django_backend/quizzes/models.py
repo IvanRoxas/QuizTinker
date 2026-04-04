@@ -87,6 +87,11 @@ class Quiz(models.Model):
         db_table = 'quizzes'
         ordering = ['-updated_at']
         verbose_name_plural = 'Quizzes'
+        indexes = [
+            models.Index(fields=['author', 'status']),
+            models.Index(fields=['status', 'availability']),
+            models.Index(fields=['-updated_at']),
+        ]
 
     def __str__(self):
         return f'{self.title} (by {self.author.username})'
@@ -127,6 +132,10 @@ class QuizAttempt(models.Model):
 
     class Meta:
         db_table = 'quiz_attempts'
+        indexes = [
+            models.Index(fields=['quiz', 'user', 'end_time']),
+            models.Index(fields=['user', '-start_time']),
+        ]
 
     def __str__(self):
         return f'{self.user.username} attempt at {self.quiz.title}'
@@ -158,6 +167,9 @@ class QuizItem(models.Model):
     class Meta:
         db_table = 'quiz_items'
         ordering = ['sort_order', 'id']
+        indexes = [
+            models.Index(fields=['quiz', 'sort_order']),
+        ]
 
     def __str__(self):
         return f'{self.quiz.title} - Item {self.sort_order}: {self.type}'

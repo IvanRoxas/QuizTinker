@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchQuizToTake, startQuizAttempt } from '../../../api/quizStudentApi';
 import './QuizIntroPage.css';
+import mediaUrl from '../../../utils/mediaUrl';
 
 const QuizIntroPage = () => {
     const { id } = useParams();
@@ -98,11 +99,7 @@ const QuizIntroPage = () => {
     const maxAttempts = quiz.attempts_allowed;
     const isLocked = attemptsTaken >= maxAttempts || errorMsg;
 
-    const getImageUrl = (path) => {
-        if (!path) return null;
-        if (path.startsWith('http')) return path;
-        return `http://localhost:8000${path.startsWith('/') ? '' : '/'}${path}`;
-    };
+
 
     return (
         <div className="student-view-container">
@@ -125,7 +122,7 @@ const QuizIntroPage = () => {
                     {quiz.preview_image && (
                         <div className="intro-thumbnail-wrap">
                             <img
-                                src={getImageUrl(quiz.preview_image)}
+                                src={mediaUrl(quiz.preview_image)}
                                 alt="Quiz Cover"
                                 className="intro-thumbnail"
                                 onError={(e) => {

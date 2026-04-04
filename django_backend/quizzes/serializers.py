@@ -93,9 +93,8 @@ class QuizSerializer(serializers.ModelSerializer):
 
     def get_author_avatar(self, obj):
         if obj.author and hasattr(obj.author, 'avatar_url') and obj.author.avatar_url:
-             return f"{settings.BACKEND_URL}{obj.author.avatar_url}"
-        elif obj.author and hasattr(obj.author, 'profile') and obj.author.profile.avatar:
-             return f"{settings.BACKEND_URL}{obj.author.profile.avatar.url}"
+            url = obj.author.avatar_url
+            return url if url.startswith('http') else f"{settings.BACKEND_URL}{url}"
         return None
 
     def get_student_attempts_taken(self, obj):
@@ -185,9 +184,8 @@ class QuizStudentSerializer(serializers.ModelSerializer):
 
     def get_author_avatar(self, obj):
         if obj.author and hasattr(obj.author, 'avatar_url') and obj.author.avatar_url:
-             return f"{settings.BACKEND_URL}{obj.author.avatar_url}"
-        elif obj.author and hasattr(obj.author, 'profile') and obj.author.profile.avatar:
-             return f"{settings.BACKEND_URL}{obj.author.profile.avatar.url}"
+            url = obj.author.avatar_url
+            return url if url.startswith('http') else f"{settings.BACKEND_URL}{url}"
         return None
 
     def get_student_attempts_taken(self, obj):

@@ -128,10 +128,7 @@ _LET_COVERAGE = {
         "ICT (computer hardware, programming basics, web design, technical-vocational "
         "ICT strands); Agri-Fishery Arts; Entrepreneurship; and TESDA NC standards."
     ),
-    "GenEd": (
-        "General Education — English communication, Filipino, Mathematics, "
-        "Science & Technology, Social Science, values/philosophy."
-    ),
+
 }
 
 _DEFAULT_COVERAGE_DESC = "LET Board Examination — general academic content."
@@ -646,23 +643,6 @@ def _resolve_topic_focus(
         f"'{specialization}'. Dropping topic focus — specialization takes priority."
     )
     return "", True
-    if not text:
-        return None
-    lower = text.lower()
-    scores = {}
-    for subject, keywords in _SUBJECT_KEYWORDS.items():
-        hits = sum(1 for kw in keywords if kw in lower)
-        if hits > 0:
-            scores[subject] = hits
-    if not scores:
-        return None
-    top_subject = max(scores, key=scores.get)
-    top_score = scores[top_subject]
-    sorted_scores = sorted(scores.values(), reverse=True)
-    runner_up = sorted_scores[1] if len(sorted_scores) > 1 else 0
-    if top_score >= 3 and top_score >= runner_up * 1.5:
-        return top_subject
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1027,7 +1007,11 @@ def quiz_detail_view(request, quiz_id):
         return Response({"message": "This quiz has expired.", "expired": True}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == "GET":
-        serializer = QuizSerializer(quiz, context={"request": request})
+        # Non-owners get the student serializer (no answers/correct_answer exposed)
+        if quiz.author == request.user or request.user.is_superuser:
+            serializer = QuizSerializer(quiz, context={"request": request})
+        else:
+            serializer = QuizStudentSerializer(quiz, context={"request": request})
         return Response({"quiz": serializer.data})
 
     if quiz.author != request.user and not request.user.is_superuser:
@@ -1291,7 +1275,7 @@ def ai_generate_quiz(request):
             except Exception:
                 pass
         return Response(
-            {"message": f"Failed to generate AI quiz: {str(e)}"},
+            {"message": "Failed to generate AI quiz. Please try again."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -1340,6 +1324,10 @@ def quiz_take_view(request, quiz_id):
     except Quiz.DoesNotExist:
         return Response({"message": "Quiz not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    if quiz.status != 'published':
+        if quiz.author != request.user and not request.user.is_superuser:
+            return Response({"message": "This quiz is not available."}, status=status.HTTP_403_FORBIDDEN)
+
     if quiz.deadline and timezone.now() > quiz.deadline and not quiz.allow_late_submissions:
         if quiz.author != request.user and not request.user.is_superuser:
             return Response({"message": "This quiz has expired.", "expired": True}, status=status.HTTP_403_FORBIDDEN)
@@ -1347,7 +1335,7 @@ def quiz_take_view(request, quiz_id):
     completed_attempts = QuizAttempt.objects.filter(quiz=quiz, user=request.user, end_time__isnull=False).count()
     open_attempt       = QuizAttempt.objects.filter(quiz=quiz, user=request.user, end_time__isnull=True).first()
 
-    if completed_attempts >= quiz.attempts_allowed and not open_attempt:
+    if quiz.attempts_allowed and quiz.attempts_allowed > 0 and completed_attempts >= quiz.attempts_allowed and not open_attempt:
         if quiz.author != request.user and not request.user.is_superuser:
             latest = (
                 QuizAttempt.objects.filter(quiz=quiz, user=request.user, end_time__isnull=False)
@@ -1377,12 +1365,16 @@ def quiz_start_view(request, quiz_id):
     except Quiz.DoesNotExist:
         return Response({"message": "Quiz not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    if quiz.status != 'published':
+        if quiz.author != request.user and not request.user.is_superuser:
+            return Response({"message": "This quiz is not available."}, status=status.HTTP_403_FORBIDDEN)
+
     open_attempt = QuizAttempt.objects.filter(quiz=quiz, user=request.user, end_time__isnull=True).first()
     if open_attempt:
         return Response({"message": "Resumed existing attempt.", "attempt_id": open_attempt.id}, status=status.HTTP_200_OK)
 
     completed_attempts = QuizAttempt.objects.filter(quiz=quiz, user=request.user, end_time__isnull=False).count()
-    if completed_attempts >= quiz.attempts_allowed:
+    if quiz.attempts_allowed and quiz.attempts_allowed > 0 and completed_attempts >= quiz.attempts_allowed:
         if quiz.author != request.user and not request.user.is_superuser:
             return Response({"message": "Max attempts reached."}, status=status.HTTP_403_FORBIDDEN)
 
