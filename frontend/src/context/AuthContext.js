@@ -16,6 +16,14 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         if (aiGenerating) {
             sessionStorage.setItem('aiGenerating', aiGenerating);
+            
+            // Global failsafe: clear aiGenerating after 2 minutes to prevent infinite
+            // loading states if the user navigates away from the polling page.
+            const failsafeTimer = setTimeout(() => {
+                setAiGenerating(null);
+            }, 2 * 60 * 1000);
+            
+            return () => clearTimeout(failsafeTimer);
         } else {
             sessionStorage.removeItem('aiGenerating');
         }
@@ -149,6 +157,8 @@ export const AuthProvider = ({ children }) => {
         await axiosClient.post('/api/logout').catch(() => { });
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
+        sessionStorage.removeItem('aiGenerating');
+        setAiGenerating(null);
         setUser(null);
     };
 

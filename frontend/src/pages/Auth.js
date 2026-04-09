@@ -12,45 +12,40 @@ const OTPInput = ({ value, onChange, disabled }) => {
     const digits = value.split('');
     const refs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
-    const handleKey = (index, e) => {
-        if (e.key === 'Backspace') {
-            e.preventDefault();
-            const next = [...digits];
-            if (next[index]) {
-                next[index] = '';
-                onChange(next.join(''));
-            } else if (index > 0) {
-                next[index - 1] = '';
-                onChange(next.join(''));
-                refs[index - 1].current?.focus();
-            }
+    const handleChange = (index, e) => {
+        let val = e.target.value.replace(/\D/g, '');
+
+        if (val.length > 1) {
+            const nextStr = val.substring(0, 6);
+            onChange(nextStr);
+            const focusIdx = Math.min(nextStr.length, 5);
+            refs[focusIdx].current?.focus();
             return;
         }
 
-        if (e.key === 'ArrowLeft' && index > 0) {
-            refs[index - 1].current?.focus();
-            return;
-        }
-        if (e.key === 'ArrowRight' && index < 5) {
+        const next = [...digits];
+        next[index] = val;
+        onChange(next.join(''));
+
+        if (val && index < 5) {
             refs[index + 1].current?.focus();
-            return;
-        }
-
-        if (/^\d$/.test(e.key)) {
-            e.preventDefault();
-            const next = [...digits];
-            next[index] = e.key;
-            onChange(next.join(''));
-            if (index < 5) refs[index + 1].current?.focus();
         }
     };
 
-    const handlePaste = (e) => {
-        e.preventDefault();
-        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-        onChange(pasted.padEnd(6, '').slice(0, 6));
-        const focusIdx = Math.min(pasted.length, 5);
-        refs[focusIdx].current?.focus();
+    const handleKey = (index, e) => {
+        if (e.key === 'Backspace' && !digits[index] && index > 0) {
+            e.preventDefault();
+            const next = [...digits];
+            next[index - 1] = '';
+            onChange(next.join(''));
+            refs[index - 1].current?.focus();
+        }
+        if (e.key === 'ArrowLeft' && index > 0) {
+            refs[index - 1].current?.focus();
+        }
+        if (e.key === 'ArrowRight' && index < 5) {
+            refs[index + 1].current?.focus();
+        }
     };
 
     return (
@@ -61,27 +56,26 @@ const OTPInput = ({ value, onChange, disabled }) => {
                     ref={refs[i]}
                     type="text"
                     inputMode="numeric"
-                    maxLength={1}
+                    maxLength={6}
                     value={digits[i] || ''}
                     disabled={disabled}
                     onKeyDown={(e) => handleKey(i, e)}
-                    onPaste={handlePaste}
-                    onChange={() => { }} // controlled via onKeyDown
+                    onChange={(e) => handleChange(i, e)}
                     style={{
                         width: '46px',
                         height: '58px',
+                        padding: 0, // Prevent global .auth-form input padding from squishing text
                         textAlign: 'center',
                         fontSize: '24px',
-                        fontWeight: '900', // Made bolder to match your title style
-                        fontFamily: "inherit",
-                        background: '#ffffff', // Solid white background for the box
-                        border: digits[i] ? '3px solid #5A82E6' : '3px solid #1E1E1E', // Charcoal or Blue border
+                        fontWeight: '900',
+                        fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+                        fontVariantNumeric: "tabular-nums",
+                        fontFeatureSettings: "'tnum' 1",
+                        background: '#ffffff',
+                        border: digits[i] ? '3px solid #5A82E6' : '3px solid #1E1E1E',
                         borderRadius: '12px',
-                        color: '#1E1E1E', // Black/Charcoal text
+                        color: '#1E1E1E',
                         outline: 'none',
-                        transition: 'all 0.2s ease',
-                        caretColor: 'transparent',
-                        cursor: disabled ? 'not-allowed' : 'text',
                     }}
                     onFocus={e => {
                         e.target.style.borderColor = '#5A82E6';
@@ -395,7 +389,12 @@ const Auth = () => {
                                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                                 </button>
                                             </div>
-                                            {errors.password && <span className="error-text">{errors.password[0]}</span>}
+                                            {errors.password && Array.isArray(errors.password) && errors.password.map((err, idx) => (
+                                                <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                            ))}
+                                            {errors.password && !Array.isArray(errors.password) && (
+                                                <span className="error-text">{errors.password}</span>
+                                            )}
                                         </div>
 
                                         {errors.general && <div className="general-error">{errors.general}</div>}
@@ -466,7 +465,12 @@ const Auth = () => {
                                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                                 </button>
                                             </div>
-                                            {errors.password && <span className="error-text">{errors.password[0]}</span>}
+                                            {errors.password && Array.isArray(errors.password) && errors.password.map((err, idx) => (
+                                                <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                            ))}
+                                            {errors.password && !Array.isArray(errors.password) && (
+                                                <span className="error-text">{errors.password}</span>
+                                            )}
                                         </div>
                                         <div className="input-group">
                                             <div className="password-input-wrapper">
@@ -474,8 +478,17 @@ const Auth = () => {
                                                     type={showPassword ? 'text' : 'password'}
                                                     name="password_confirmation" placeholder="Enter Confirm Password..."
                                                     value={formData.password_confirmation} onChange={handleInputChange} required />
+                                                <button type="button" className="password-toggle"
+                                                    onClick={() => setShowPassword(!showPassword)}>
+                                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                </button>
                                             </div>
-                                            {errors.password_confirmation && <span className="error-text">{errors.password_confirmation[0]}</span>}
+                                            {errors.password_confirmation && Array.isArray(errors.password_confirmation) && errors.password_confirmation.map((err, idx) => (
+                                                <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                            ))}
+                                            {errors.password_confirmation && !Array.isArray(errors.password_confirmation) && (
+                                                <span className="error-text">{errors.password_confirmation}</span>
+                                            )}
                                         </div>
 
                                         {errors.general && <div className="general-error">{errors.general}</div>}

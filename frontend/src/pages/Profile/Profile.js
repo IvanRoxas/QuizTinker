@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User as UserIcon, LogOut, Layout, BookOpen, Award, Camera, Edit2, ChevronLeft, ChevronRight, ChevronUp, Search } from 'lucide-react';
+import { Bell, User as UserIcon, LogOut, Layout, BookOpen, Award, Camera, Edit2, ChevronLeft, ChevronRight, ChevronUp, Search, Eye, EyeOff } from 'lucide-react';
 import ImageCropModal from './ImageCropModal';
 import axiosClient from '../../api/axiosClient';
 import { getDisplayName } from '../../utils/userUtils';
@@ -24,6 +24,7 @@ const Profile = () => {
     // Form States
     const [detailsForm, setDetailsForm] = useState({ name: '', first_name: '', last_name: '', status: '', bio: '' });
     const [securityForm, setSecurityForm] = useState({ email: '', current_password: '', new_password: '', new_password_confirmation: '' });
+    const [showPasswords, setShowPasswords] = useState(false);
 
     // UI States & Errors
     const [detailsUpdating, setDetailsUpdating] = useState(false);
@@ -167,9 +168,15 @@ const Profile = () => {
 
         try {
             await axiosClient.put('/api/profile/security', securityForm);
-            showToast("Security settings updated successfully!");
-            setSecurityForm(prev => ({ ...prev, current_password: '', new_password: '', new_password_confirmation: '' }));
-            setIsEditingSecurity(false);
+            
+            if (securityForm.new_password) {
+                showToast("Password updated successfully. Please log back in.");
+                await handleLogout();
+            } else {
+                showToast("Security settings updated successfully!");
+                setSecurityForm(prev => ({ ...prev, current_password: '', new_password: '', new_password_confirmation: '' }));
+                setIsEditingSecurity(false);
+            }
         } catch (error) {
             if (error.response?.status === 422) {
                 setValidationErrors(error.response.data.errors);
@@ -493,22 +500,47 @@ const Profile = () => {
                                     <>
                                         <div className="settings-row editing-row">
                                             <label>Current Password</label>
-                                            <div className="input-wrapper">
-                                                <input type="password" value={securityForm.current_password} onChange={e => setSecurityForm({ ...securityForm, current_password: e.target.value })} placeholder="••••••••••••" required />
-                                                {validationErrors.current_password && <span className="error-text">{validationErrors.current_password[0]}</span>}
+                                            <div className="input-wrapper" style={{position: 'relative'}}>
+                                                <input type={showPasswords ? 'text' : 'password'} value={securityForm.current_password} onChange={e => setSecurityForm({ ...securityForm, current_password: e.target.value })} placeholder="••••••••••••" required />
+                                                <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
+                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                                {validationErrors.current_password && Array.isArray(validationErrors.current_password) && validationErrors.current_password.map((err, idx) => (
+                                                    <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                                ))}
+                                                {validationErrors.current_password && !Array.isArray(validationErrors.current_password) && (
+                                                    <span className="error-text">{validationErrors.current_password}</span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="settings-row editing-row">
                                             <label>New Password (Optional)</label>
-                                            <div className="input-wrapper">
-                                                <input type="password" value={securityForm.new_password} onChange={e => setSecurityForm({ ...securityForm, new_password: e.target.value })} placeholder="••••••••••••" />
-                                                {validationErrors.new_password && <span className="error-text">{validationErrors.new_password[0]}</span>}
+                                            <div className="input-wrapper" style={{position: 'relative'}}>
+                                                <input type={showPasswords ? 'text' : 'password'} value={securityForm.new_password} onChange={e => setSecurityForm({ ...securityForm, new_password: e.target.value })} placeholder="••••••••••••" />
+                                                <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
+                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                                {validationErrors.new_password && Array.isArray(validationErrors.new_password) && validationErrors.new_password.map((err, idx) => (
+                                                    <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                                ))}
+                                                {validationErrors.new_password && !Array.isArray(validationErrors.new_password) && (
+                                                    <span className="error-text">{validationErrors.new_password}</span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="settings-row editing-row">
                                             <label>Confirm New Password</label>
-                                            <div className="input-wrapper">
-                                                <input type="password" value={securityForm.new_password_confirmation} onChange={e => setSecurityForm({ ...securityForm, new_password_confirmation: e.target.value })} placeholder="••••••••••••" />
+                                            <div className="input-wrapper" style={{position: 'relative'}}>
+                                                <input type={showPasswords ? 'text' : 'password'} value={securityForm.new_password_confirmation} onChange={e => setSecurityForm({ ...securityForm, new_password_confirmation: e.target.value })} placeholder="••••••••••••" />
+                                                <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
+                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                                {validationErrors.new_password_confirmation && Array.isArray(validationErrors.new_password_confirmation) && validationErrors.new_password_confirmation.map((err, idx) => (
+                                                    <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
+                                                ))}
+                                                {validationErrors.new_password_confirmation && !Array.isArray(validationErrors.new_password_confirmation) && (
+                                                    <span className="error-text">{validationErrors.new_password_confirmation}</span>
+                                                )}
                                             </div>
                                         </div>
                                     </>
