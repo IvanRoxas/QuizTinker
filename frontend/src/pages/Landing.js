@@ -129,7 +129,7 @@ function Landing() {
       {/* 2. Hero Section */}
       <section id="home" className="hero-section">
         <div className="hero-card">
-          <h1>WELCOME TO<br />QUIZDECK!</h1>
+          <h1>WELCOME TO<br />QuizTinker!</h1>
           <p>We invent knowledge, and with knowledge comes the power to make things right. Experience a brand new way to learn! </p>
           <button className="signup-btn" onClick={() => navigate('/auth')}>GET STARTED!</button>
         </div>

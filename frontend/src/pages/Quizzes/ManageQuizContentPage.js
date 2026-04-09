@@ -48,7 +48,7 @@ const ManageQuizContentPage = () => {
             setItems(q.items || []);
         } catch (err) {
             console.error('Failed to load quiz', err);
-            showToast('Failed to load quiz.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to load quiz.');
         } finally {
             setLoading(false);
         }
@@ -71,8 +71,8 @@ const ManageQuizContentPage = () => {
                 if (pollInterval) clearInterval(pollInterval);
                 setQuiz(prev => ({ ...prev, status: 'error' }));
                 setAiGenerating(null);
-                showToast('Generation timed out. Please try again.');
-            }, 5 * 60 * 1000); // 5 minutes
+                showToast('Generation timed out. You may continue to use the application or try again.');
+            }, 2 * 60 * 1000); // 2 minutes
         }
 
         // When status transitions away from 'generating', clear the global toast.
@@ -167,7 +167,7 @@ const ManageQuizContentPage = () => {
             setIsDirty(false);
             showToast(quiz.status === 'published' ? 'Changes saved.' : 'Draft saved.');
         } catch (err) {
-            showToast('Failed to save.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to save.');
         } finally {
             setSaving(false);
         }
@@ -186,7 +186,7 @@ const ManageQuizContentPage = () => {
             setQuiz({ ...quiz, status: 'published' });
             showToast('Quiz published!');
         } catch (err) {
-            showToast('Failed to publish.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to publish.');
         } finally {
             setSaving(false);
         }
@@ -200,7 +200,7 @@ const ManageQuizContentPage = () => {
             setShowUnpublishModal(false);
             showToast('Quiz reverted to draft.');
         } catch (err) {
-            showToast('Failed to unpublish.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to unpublish.');
         } finally {
             setSaving(false);
         }
@@ -217,7 +217,7 @@ const ManageQuizContentPage = () => {
             setItems([...items, newItem]);
             startEditing(newItem.id, newItem);
         } catch (err) {
-            showToast('Failed to add question.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to add question.');
         }
     };
 
@@ -232,7 +232,7 @@ const ManageQuizContentPage = () => {
             setEditing(newEditing);
             // Re-order remaining? It's fine to leave gaps in sort_order.
         } catch (err) {
-            showToast('Failed to delete question.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to delete question.');
         }
     };
 
@@ -276,7 +276,7 @@ const ManageQuizContentPage = () => {
             setItems(items.map(it => it.id === itemId ? updatedItem : it));
             cancelEditing(itemId);
         } catch (err) {
-            showToast('Failed to save question.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to save question.');
         }
     };
 
@@ -300,7 +300,7 @@ const ManageQuizContentPage = () => {
                 });
             }
         } catch (err) {
-            showToast('Failed to upload image.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to upload image.');
         }
     };
 
@@ -318,7 +318,7 @@ const ManageQuizContentPage = () => {
                 });
             }
         } catch (err) {
-            showToast('Failed to remove image.');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to remove image.');
         }
     };
 
@@ -591,9 +591,9 @@ const ManageQuizContentPage = () => {
     if (quiz.status === 'error') {
         return (
             <div className="manage-message">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', maxWidth: '600px', textAlign: 'center' }}>
                     <h2 style={{ color: '#E53935' }}>Generation Failed</h2>
-                    <p>There was an error generating your quiz, or it timed out.</p>
+                    <p>{quiz?.meta?.error_message || 'There was an error generating your quiz, or it timed out.'}</p>
                     <button className="neo-btn" onClick={() => navigate('/dashboard')}>Return to Dashboard</button>
                 </div>
             </div>
@@ -657,7 +657,6 @@ const ManageQuizContentPage = () => {
                             className="config-number-input"
                             value={quiz.time_limit_minutes || ''}
                             onChange={(e) => handleQuizChange('time_limit_minutes', e.target.value ? parseInt(e.target.value) : null)}
-                            disabled={isAIGenerated}
                         />
                     </div>
                     <div className="control-group checkbox-row">
@@ -667,7 +666,6 @@ const ManageQuizContentPage = () => {
                             className="config-checkbox"
                             checked={quiz.show_answers_at_end !== false}
                             onChange={e => handleQuizChange('show_answers_at_end', e.target.checked)}
-                            disabled={isAIGenerated}
                         />
                         <label htmlFor="showAnswers">Show Answers at End</label>
                     </div>
@@ -678,7 +676,6 @@ const ManageQuizContentPage = () => {
                             className="config-checkbox"
                             checked={quiz.can_backtrack !== false}
                             onChange={e => handleQuizChange('can_backtrack', e.target.checked)}
-                            disabled={isAIGenerated}
                         />
                         <label htmlFor="allowBacktrack">Allow Backtracking</label>
                     </div>

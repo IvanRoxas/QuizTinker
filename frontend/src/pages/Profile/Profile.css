@@ -383,6 +383,25 @@
     flex-direction: column;
 }
 
+.password-toggle {
+    position: absolute;
+    right: 1.25rem;
+    top: 24px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--blue);
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.password-toggle:hover {
+    opacity: 1;
+}
+
 .error-text {
     color: #FF4444;
     font-size: 0.8rem;

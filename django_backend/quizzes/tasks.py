@@ -34,7 +34,10 @@ def generate_quiz_task(quiz_id, category, specialization, topic_focus, num_quest
         logger.error(f"[AI QUIZ] Background task failed for quiz {quiz_id}: {str(e)}")
         try:
             quiz = Quiz.objects.get(id=quiz_id)
+            meta = quiz.meta or {}
+            meta['error_message'] = str(e)
+            quiz.meta = meta
             quiz.status = "error"
-            quiz.save(update_fields=["status"])
+            quiz.save(update_fields=["status", "meta"])
         except Exception:
             pass

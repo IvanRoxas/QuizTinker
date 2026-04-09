@@ -170,14 +170,28 @@ def update_security_view(request):
 
     # Update password if provided
     new_password = data.get('new_password')
+    new_password_confirmation = data.get('new_password_confirmation')
+    
     if new_password:
+        if new_password != new_password_confirmation:
+            return Response(
+                {'errors': {'new_password_confirmation': ['Passwords do not match.']}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+            
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
+            return Response(
+                {'errors': {'new_password': list(e.messages)}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+            
         user.set_password(new_password)
 
     user.save()
-
-    # Re-login to refresh the session after password change
-    if new_password:
-        login(request, user)
 
     return Response({
         'message': 'Security settings updated successfully.',

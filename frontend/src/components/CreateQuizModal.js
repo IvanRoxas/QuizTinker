@@ -293,7 +293,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             onClose();
         } catch (err) {
             console.error(err);
-            showToast(err.response?.data?.message || 'Failed to save draft.', 'error');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to save draft.', 'error');
         } finally {
             setSavingDraft(false);
         }
@@ -385,7 +385,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         } catch (err) {
             console.error(err);
             setAiGenerating(null);
-            showToast(err.response?.data?.message || 'Failed to save/generate.', 'error');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to save/generate.', 'error');
         } finally {
             setContinuing(false);
         }
@@ -408,7 +408,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             onClose();
         } catch (err) {
             console.error(err);
-            showToast(err.response?.data?.message?.[0] || err.response?.data?.message || 'Failed to publish.', 'error');
+            showToast(err.response?.data?.message?.[0] || err.response?.data?.message || err.response?.data?.error || 'Failed to publish.', 'error');
         } finally {
             setPublishing(false);
         }
@@ -425,7 +425,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             onClose();
         } catch (err) {
             console.error(err);
-            showToast('Failed to delete quiz.', 'error');
+            showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to delete quiz.', 'error');
         } finally {
             setDeleting(false);
             setShowDeleteConfirm(false);
