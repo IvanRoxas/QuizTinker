@@ -76,6 +76,8 @@ class Quiz(models.Model):
     category = models.CharField(max_length=50, blank=True, null=True, help_text="For AI generated quizzes")
     specialization = models.CharField(max_length=100, blank=True, null=True, help_text="For AI generated quizzes")
     meta = models.JSONField(default=dict, blank=True, help_text="Stores metadata about AI generation like source files, etc.")
+    reference_file_1 = models.FileField(upload_to='quiz_references/', blank=True, null=True)
+    reference_file_2 = models.FileField(upload_to='quiz_references/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

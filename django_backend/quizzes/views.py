@@ -1210,6 +1210,8 @@ def ai_generate_quiz(request):
         quiz_meta = {
             "lang_mode": "english",
             "specialization_confidence": specialization_confidence,
+            "bloom_distribution": valid_bloom_counts,
+            "total_questions": num_questions,
         }
         if combined_raw:
             quiz_meta.update({
@@ -1232,6 +1234,8 @@ def ai_generate_quiz(request):
             category=category,
             specialization=specialization,
             meta=quiz_meta,
+            reference_file_1=reference_file_1,
+            reference_file_2=reference_file_2,
         )
 
         from django_q.tasks import async_task
