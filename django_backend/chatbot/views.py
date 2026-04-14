@@ -242,22 +242,77 @@ def _build_gemini_history(messages) -> list:
     return history
 
 
-def _call_gemini_chat(history: list, user_message: str, max_tokens: int) -> str:
+def _generate_chat_reply(past_messages: list, optimized_prompt: str, max_tokens: int) -> str:
     """
-    Call Gemini with conversation history and a new user message.
+    Call Gemini with conversation history and a new user message. Fallback to Groq and OpenRouter if it fails.
     """
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    chat = client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=_SYSTEM_PROMPT,
-            temperature=0.6,
-            max_output_tokens=max_tokens,
-        ),
-        history=history
-    )
-    response = chat.send_message(user_message)
-    return response.text.strip()
+    import urllib.request
+    
+    def _call_gemini():
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        chat = client.chats.create(
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                temperature=0.6,
+                max_output_tokens=max_tokens,
+            ),
+            history=_build_gemini_history(past_messages)
+        )
+        response = chat.send_message(optimized_prompt)
+        return response.text.strip()
+
+    def _call_groq():
+        openai_history = [{"role": "system", "content": _SYSTEM_PROMPT}]
+        for msg in past_messages:
+            role = "assistant" if msg.role == "assistant" else "user"
+            openai_history.append({"role": role, "content": msg.content})
+        openai_history.append({"role": "user", "content": optimized_prompt})
+
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        )
+        data = json.dumps({
+            "model": "llama-3.3-70b-versatile",
+            "messages": openai_history,
+            "temperature": 0.6,
+            "max_tokens": max_tokens
+        }).encode()
+        with urllib.request.urlopen(req, data=data, timeout=30) as response:
+            res = json.loads(response.read().decode())
+            return res["choices"][0]["message"]["content"].strip()
+            
+    def _call_openrouter():
+        openai_history = [{"role": "system", "content": _SYSTEM_PROMPT}]
+        for msg in past_messages:
+            role = "assistant" if msg.role == "assistant" else "user"
+            openai_history.append({"role": role, "content": msg.content})
+        openai_history.append({"role": "user", "content": optimized_prompt})
+
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        )
+        data = json.dumps({
+            "model": "meta-llama/llama-3-70b-instruct",
+            "messages": openai_history,
+            "temperature": 0.6,
+            "max_tokens": max_tokens
+        }).encode()
+        with urllib.request.urlopen(req, data=data, timeout=30) as response:
+            res = json.loads(response.read().decode())
+            return res["choices"][0]["message"]["content"].strip()
+
+    try:
+        return _call_gemini()
+    except Exception as e:
+        logger.warning(f"[CHATBOT] Gemini failed: {e}")
+        try:
+            return _call_groq()
+        except Exception as e2:
+            logger.warning(f"[CHATBOT] Groq failed: {e2}")
+            return _call_openrouter()
 
 
 def _count_consecutive_oos(messages: list) -> int:
@@ -419,11 +474,11 @@ def chat_view(request):
     if oos_hint:
         optimized_prompt += oos_hint
 
-    # ── Call Gemini ───────────────────────────────────────────────────────
+    # ── Call AI Chain ───────────────────────────────────────────────────────
     try:
-        reply = _call_gemini_chat(gemini_history, optimized_prompt, max_tokens=max_tokens)
+        reply = _generate_chat_reply(past_messages, optimized_prompt, max_tokens=max_tokens)
     except Exception as e:
-        logger.error(f"[CHATBOT] Gemini error: {e}")
+        logger.error(f"[CHATBOT] AI Chain error: {e}")
         return Response(
             {"error": "The AI assistant is temporarily unavailable. Please try again."},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -534,19 +589,65 @@ def upload_view(request):
         f"Return ONLY the JSON object, no markdown fences."
     )
 
+    def _parse_summary_json(text):
+        for fence in ("```json", "```"):
+            if text.startswith(fence):
+                text = text[len(fence):]
+        if text.endswith("```"):
+            text = text[:-3]
+        return json.loads(text.strip())
+
+    import urllib.request
     try:
-        summary_response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=summary_prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.4,
-                max_output_tokens=_TOKENS_FILE,
-                response_mime_type="application/json",
+        result = None
+        try:
+            summary_response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=summary_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.4,
+                    max_output_tokens=_TOKENS_FILE,
+                    response_mime_type="application/json",
+                )
             )
-        )
-        result      = json.loads(summary_response.text.strip())
-        summary     = result.get("summary", "")
-        explanation = result.get("explanation", "")
+            result = json.loads(summary_response.text.strip())
+        except Exception as e:
+            logger.warning(f"[CHATBOT] Gemini summary failed: {e}")
+            try:
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+                )
+                data = json.dumps({
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": summary_prompt}],
+                    "temperature": 0.4,
+                    "max_tokens": _TOKENS_FILE
+                }).encode()
+                with urllib.request.urlopen(req, data=data, timeout=30) as response:
+                    res = json.loads(response.read().decode())
+                    result = _parse_summary_json(res["choices"][0]["message"]["content"])
+            except Exception as e2:
+                logger.warning(f"[CHATBOT] Groq summary failed: {e2}")
+                req = urllib.request.Request(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+                )
+                data = json.dumps({
+                    "model": "meta-llama/llama-3-70b-instruct",
+                    "messages": [{"role": "user", "content": summary_prompt}],
+                    "temperature": 0.4,
+                    "max_tokens": _TOKENS_FILE
+                }).encode()
+                with urllib.request.urlopen(req, data=data, timeout=30) as response:
+                    res = json.loads(response.read().decode())
+                    result = _parse_summary_json(res["choices"][0]["message"]["content"])
+                    
+        if result:
+            summary     = result.get("summary", "")
+            explanation = result.get("explanation", "")
+        else:
+            raise Exception("All fallback instances failed to provide valid output.")
     except Exception as e:
         logger.error(f"[CHATBOT] File summarization failed: {e}")
         return Response(

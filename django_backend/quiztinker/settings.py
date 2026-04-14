@@ -20,6 +20,8 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
+GROQ_API_KEY = env('GROQ_API_KEY', default='')
+OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 

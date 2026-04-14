@@ -45,6 +45,13 @@ const QuizIntroPage = () => {
     };
 
     const handleStartQuiz = async () => {
+        // Block attempt if deadline has passed and late submissions are disabled
+        if (quiz && quiz.deadline && !quiz.allow_late_submissions) {
+            if (new Date() > new Date(quiz.deadline)) {
+                setErrorMsg('This quiz is closed. The deadline has passed and late submissions are not accepted.');
+                return;
+            }
+        }
         try {
             setStarting(true);
             const data = await startQuizAttempt(id);
@@ -97,7 +104,9 @@ const QuizIntroPage = () => {
     if (!quiz) return null;
 
     const maxAttempts = quiz.attempts_allowed;
-    const isLocked = attemptsTaken >= maxAttempts || errorMsg;
+    // Deadline-passed check (frontend guard before network call)
+    const isDeadlinePassed = !!(quiz.deadline && !quiz.allow_late_submissions && new Date() > new Date(quiz.deadline));
+    const isLocked = (maxAttempts > 0 && attemptsTaken >= maxAttempts) || !!errorMsg || isDeadlinePassed;
 
 
 
@@ -160,7 +169,7 @@ const QuizIntroPage = () => {
                 <div className="intro-action">
                     {isLocked ? (
                         <button className="neo-btn giant disabled" disabled>
-                            {attemptsTaken >= maxAttempts ? 'MAX ATTEMPTS REACHED' : 'QUIZ UNAVAILABLE'}
+                            {isDeadlinePassed ? 'DEADLINE PASSED' : (maxAttempts > 0 && attemptsTaken >= maxAttempts ? 'MAX ATTEMPTS REACHED' : 'QUIZ UNAVAILABLE')}
                         </button>
                     ) : (
                         <button

@@ -503,7 +503,7 @@ const Profile = () => {
                                             <div className="input-wrapper" style={{position: 'relative'}}>
                                                 <input type={showPasswords ? 'text' : 'password'} value={securityForm.current_password} onChange={e => setSecurityForm({ ...securityForm, current_password: e.target.value })} placeholder="••••••••••••" required />
                                                 <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
-                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    {showPasswords ? <Eye size={18} /> : <EyeOff size={18} />}
                                                 </button>
                                                 {validationErrors.current_password && Array.isArray(validationErrors.current_password) && validationErrors.current_password.map((err, idx) => (
                                                     <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
@@ -518,7 +518,7 @@ const Profile = () => {
                                             <div className="input-wrapper" style={{position: 'relative'}}>
                                                 <input type={showPasswords ? 'text' : 'password'} value={securityForm.new_password} onChange={e => setSecurityForm({ ...securityForm, new_password: e.target.value })} placeholder="••••••••••••" />
                                                 <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
-                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    {showPasswords ? <Eye size={18} /> : <EyeOff size={18} />}
                                                 </button>
                                                 {validationErrors.new_password && Array.isArray(validationErrors.new_password) && validationErrors.new_password.map((err, idx) => (
                                                     <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>
@@ -533,7 +533,7 @@ const Profile = () => {
                                             <div className="input-wrapper" style={{position: 'relative'}}>
                                                 <input type={showPasswords ? 'text' : 'password'} value={securityForm.new_password_confirmation} onChange={e => setSecurityForm({ ...securityForm, new_password_confirmation: e.target.value })} placeholder="••••••••••••" />
                                                 <button type="button" className="password-toggle" onClick={() => setShowPasswords(!showPasswords)}>
-                                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    {showPasswords ? <Eye size={18} /> : <EyeOff size={18} />}
                                                 </button>
                                                 {validationErrors.new_password_confirmation && Array.isArray(validationErrors.new_password_confirmation) && validationErrors.new_password_confirmation.map((err, idx) => (
                                                     <span key={idx} className="error-text" style={{display: 'block', marginTop: '4px'}}>{err}</span>

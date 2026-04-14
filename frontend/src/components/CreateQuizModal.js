@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, X, Trash2, Settings, ExternalLink, Search, Check, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { createQuiz, updateQuiz, aiGenerateQuiz } from '../api/quizApi';
+import { createQuiz, updateQuiz, aiGenerateQuiz, createQuizItem } from '../api/quizApi';
+import { fallbackQuestionBank } from '../utils/fallbackQuestionBank';
 import axiosClient from '../api/axiosClient';
 import './CreateQuizModal.css';
 import mediaUrl from '../utils/mediaUrl';
@@ -30,9 +31,13 @@ const truncateFilename = (name, maxLength = 30) => {
 
 const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const navigate = useNavigate();
-    const { showToast, user, aiGenerating, setAiGenerating } = useAuth();
+    const { showToast, user, aiGenerating, setAiGenerating, setAiGenError } = useAuth();
     const fileRef = useRef(null);
     const referenceFileRef = useRef(null);
+
+    // ── Retry logic refs (stable across re-renders, no stale closures) ──
+    const retryCountRef = useRef(0);
+    const handleContinueRef = useRef(null);
 
     // ── Form state (persisted across Manual/AI tab switches) ──
     const [title, setTitle] = useState('');
@@ -85,6 +90,13 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const isEditing = !!quizData;
     const isAuthor = quizData ? (Number(quizData.author) === Number(user?.id)) : true;
     const viewOnly = isEditing && !isAuthor;
+
+    // Reset retry counter whenever the modal opens fresh
+    useEffect(() => {
+        if (isOpen) {
+            retryCountRef.current = 0;
+        }
+    }, [isOpen]);
 
     // Timezone 
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -349,6 +361,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 };
 
                 let aiData;
+                const currentRetries = retryCountRef.current || 0;
                 if (referenceFiles.length > 0) {
                     aiData = new FormData();
                     aiData.append('title', title.trim());
@@ -360,6 +373,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     aiData.append('specialization', specialization);
                     aiData.append('prompt', promptText);
                     aiData.append('bloom_distribution', JSON.stringify(distribution));
+                    aiData.append('retry_count', currentRetries);
 
                     referenceFiles.forEach((file, idx) => {
                         aiData.append(`reference_file_${idx + 1}`, file);
@@ -374,15 +388,101 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                         category: category,
                         specialization: specialization,
                         prompt: promptText,
-                        bloom_distribution: distribution
+                        bloom_distribution: distribution,
+                        retry_count: currentRetries
                     };
                 }
-                setAiGenerating(title.trim());
-                const generatedData = await aiGenerateQuiz(aiData);
-                onSaved && onSaved(generatedData, 'create');
-                resetBloom();
-                onClose();
-                navigate(`/quizzes/edit/${generatedData.id}`);
+                
+                // Show generating message with progress
+                let btnText = "generating quiz";
+                if (currentRetries === 1) btnText = "Retry 1/3 - generating quiz";
+                if (currentRetries === 2) btnText = "Retry 2/3 - generating quiz";
+                if (currentRetries >= 3) btnText = "Switching to backup AI - generating quiz";
+                setAiGenerating(`${title.trim()} - ${btnText}`);
+
+                // ── AI Generation — single attempt, user-controlled retries ──────
+                try {
+                    const generatedData = await aiGenerateQuiz(aiData);
+                    
+                    // Wait for generation to finish by polling the background task
+                    const { fetchQuiz } = await import('../api/quizApi');
+                    let isGenerating = true;
+                    let pollAttempts = 0;
+                    let resultData = null;
+                    
+                    while (isGenerating && pollAttempts < 20) {
+                        await new Promise(r => setTimeout(r, 3000)); // wait 3 seconds
+                        const currentQuiz = await fetchQuiz(generatedData.id);
+                        if (currentQuiz.status === 'published' || currentQuiz.status === 'draft') {
+                            isGenerating = false;
+                            resultData = currentQuiz;
+                        } else if (currentQuiz.status === 'error') {
+                            throw new Error(currentQuiz.meta?.error_message || "Generation failed");
+                        }
+                        pollAttempts++;
+                    }
+                    
+                    if (isGenerating) {
+                        throw new Error("Timeout: Generation took too long.");
+                    }
+                    
+                    // Success — reset counter, navigate to editor
+                    setAiGenerating(null);
+                    retryCountRef.current = 0;
+                    onSaved && onSaved(resultData, 'create');
+                    resetBloom();
+                    onClose();
+                    navigate(`/quizzes/edit/${resultData.id}`);
+                } catch (aiErr) {
+                    console.warn('AI generation attempt failed:', aiErr);
+                    setAiGenerating(null);
+
+                    // ── Parse error into user-friendly message ──
+                    const rawMsg = aiErr.response?.data?.message || aiErr.response?.data?.error || aiErr.message || 'Unknown error';
+                    let friendlyMsg = rawMsg;
+                    if (typeof rawMsg === 'string') {
+                        const messageMatch = rawMsg.match(/['"]message['"]:\s*['"]([^'"]+)['"]/);
+                        if (messageMatch) {
+                            friendlyMsg = messageMatch[1];
+                        } else if (rawMsg.includes('UNAVAILABLE') || rawMsg.includes('503')) {
+                            friendlyMsg = 'The AI service is experiencing high demand. Please try again shortly.';
+                        } else if (rawMsg.includes('RESOURCE_EXHAUSTED') || rawMsg.includes('429')) {
+                            friendlyMsg = 'The AI service is currently overloaded. Please wait a moment and try again.';
+                        }
+                    }
+
+                    // ── Increment retry counter ──
+                    retryCountRef.current += 1;
+                    const nextRetries = retryCountRef.current;
+
+                    let overlayBtnText = "Retry 1/3";
+                    if (nextRetries === 1) overlayBtnText = "Retry 1/3";
+                    if (nextRetries === 2) overlayBtnText = "Retry 2/3";
+                    if (nextRetries === 3) overlayBtnText = "Final Attempt";
+                    if (nextRetries > 3) overlayBtnText = "Switching to backup AI";
+
+                    // ═══ Show error overlay — user can Retry or go to Dashboard ═══
+                    const remainingRetries = Math.max(0, 3 - nextRetries);
+                    setAiGenError({
+                        message: friendlyMsg,
+                        retryCount: currentRetries,
+                        remainingRetries,
+                        btnText: overlayBtnText,
+                        // retryFn uses handleContinueRef to ALWAYS call
+                        // the latest handleContinue — never a stale closure.
+                        retryFn: () => {
+                            setAiGenError(null);
+                            // Tiny delay lets React flush the error-state clear
+                            setTimeout(() => {
+                                if (handleContinueRef.current) {
+                                    handleContinueRef.current();
+                                }
+                            }, 50);
+                        },
+                    });
+                    setContinuing(false);
+                    return; // Exit early — don't throw to outer catch
+                }
             } else {
                 const data = buildUpdateData('draft');
                 let saved;
@@ -405,12 +505,24 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         }
     };
 
+    // ── Always point the ref to the LATEST handleContinue (runs every render) ──
+    handleContinueRef.current = handleContinue;
+
     // ── Publish ──
     const handlePublish = async () => {
         if (!title.trim()) return;
         if (availability === 'specific_friends' && selectedFriends.length === 0) {
             showToast('Please select at least one friend to share with.', 'error');
             return;
+        }
+
+        // Block publishing if the deadline is already in the past
+        if (deadline) {
+            const deadlineDate = new Date(deadline);
+            if (deadlineDate < new Date()) {
+                showToast('Cannot publish: the deadline is in the past. Please set a future date or clear the deadline field.', 'error');
+                return;
+            }
         }
 
         setPublishing(true);
