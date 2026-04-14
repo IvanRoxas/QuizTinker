@@ -8,6 +8,19 @@ import { getDisplayName } from '../../utils/userUtils';
 import mediaUrl from '../../utils/mediaUrl';
 import './Profile.css';
 
+// Anonymize email: show first 5 chars of local part + masked chars + full domain
+// e.g. "daniel.tan@gmail.com" → "danie***@gmail.com"
+const anonymizeEmail = (email) => {
+    if (!email) return '';
+    const atIdx = email.indexOf('@');
+    if (atIdx < 0) return email;
+    const local  = email.slice(0, atIdx);
+    const domain = email.slice(atIdx);          // includes '@'
+    const visible  = local.slice(0, 5);
+    const masked   = '*'.repeat(Math.max(0, local.length - 5));
+    return `${visible}${masked}${domain}`;
+};
+
 const Profile = () => {
     const { user, logout, updateUserContext, showToast, bumpFriendsVersion } = useAuth();
     const navigate = useNavigate();
@@ -487,7 +500,7 @@ const Profile = () => {
                                 <div className="settings-row">
                                     <label>E-mail Account</label>
                                     {!isEditingSecurity ? (
-                                        <div className="view-text disabled-text">{profileData?.email || ''}</div>
+                                        <div className="view-text disabled-text" title="Click 'Edit Credentials' to view or change your email">{anonymizeEmail(profileData?.email)}</div>
                                     ) : (
                                         <div className="input-wrapper">
                                             <input type="email" value={securityForm.email} onChange={e => setSecurityForm({ ...securityForm, email: e.target.value })} required />

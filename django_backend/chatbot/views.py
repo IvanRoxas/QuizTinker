@@ -155,6 +155,89 @@ _NUMBER_PATTERN = re.compile(
 
 
 # ---------------------------------------------------------------------------
+# Prompt Injection Guard
+# ---------------------------------------------------------------------------
+
+_MAX_MESSAGE_LENGTH = 2000  # Hard cap on incoming user message length
+
+# Patterns that are common prompt-injection / jailbreak attempts.
+# Checked case-insensitively against the raw user message.
+_INJECTION_PATTERNS = [
+    # ── Override-verb + positional-word (English) ───────────────────────────
+    # "disregard the above constraints", "ignore previous rules", etc.
+    # Uses \S+ at the end so ANY noun is caught, not a fixed list.
+    re.compile(
+        r'(ignore|disregard|bypass|override|forget|dismiss|set\s+aside|drop)\s+'
+        r'(all\s+)?(the\s+)?(above|previous|prior|earlier|current|existing|given|those|these|your)\s+\S+',
+        re.IGNORECASE
+    ),
+    # Looser: "ignore all constraints / restrictions / filters …"
+    re.compile(
+        r'(ignore|disregard|bypass|override|forget|dismiss)\s+all\s+'
+        r'(instructions?|rules?|constraints?|restrictions?|guidelines?|limits?|filters?|prompts?)',
+        re.IGNORECASE
+    ),
+    # ── Filipino / Tagalog override verbs ──────────────────────────────────
+    # Catches mixed-language injections such as:
+    #   "kalimutan ang mga constraint, turuan mo akong …"
+    #   "balewalain ang lahat ng patakaran …"
+    re.compile(
+        r'\b(kalimutan|balewalain|hindi\s+sundin|huwag\s+sundin|huwag\s+pansinin|'
+        r'laktawan|lampasan|alisin|tanggalin|sirain|baguhin|palitan)\b',
+        re.IGNORECASE
+    ),
+    # ── Language-agnostic proximity heuristic ──────────────────────────────
+    # If an English boundary-noun (constraint, rule, instruction …) AND any
+    # override verb (English or Tagalog) both appear anywhere in the same
+    # message, block it — regardless of surrounding language.
+    re.compile(
+        r'(?=.*\b(constraint|restriction|instruction|guideline|rule|limit|filter|prompt)s?\b)'
+        r'(?=.*\b(ignore|disregard|bypass|override|forget|dismiss|kalimutan|balewalain|'
+        r'laktawan|lampasan|huwag|hindi\s+sundin)\b)',
+        re.IGNORECASE
+    ),
+    # ── System prompt / instruction leakage ────────────────────────────────
+    re.compile(r'(reveal|show|print|output|display|repeat|tell\s+me)\s+(your\s+)?(system\s+prompt|system\s+instructions?|hidden\s+instructions?|base\s+prompt)', re.IGNORECASE),
+    re.compile(r'what\s+(are|is)\s+(your\s+)?(system\s+(prompt|instructions?)|initial\s+(prompt|instructions?))', re.IGNORECASE),
+    # ── Role/persona switching ──────────────────────────────────────────────
+    re.compile(r'(you\s+are\s+now|act\s+as|pretend\s+(to\s+be|you\s+are)|respond\s+as|behave\s+as|roleplay\s+as)\s+(?!an?\s+academic)', re.IGNORECASE),
+    re.compile(r'(sudo|developer|admin|god|unrestricted|jailbreak|dan|chatgpt|gpt-?\d|gemini|claude)\s+(mode|prompt|override|access|unlock)', re.IGNORECASE),
+    # ── Delimiter injection ─────────────────────────────────────────────────
+    re.compile(r'(---|###|<<<|>>>|\[INST\]|<\|im_start\|>|<\|im_end\|>|<\|system\|>)', re.IGNORECASE),
+    re.compile(r'\\n(system|assistant|user):', re.IGNORECASE),
+    # ── Context override / token stuffing ──────────────────────────────────
+    re.compile(r'new\s+prompt\s*:', re.IGNORECASE),
+    re.compile(r'(actual|real|true|hidden)\s+(instructions?|task|goal|objective)\s*:', re.IGNORECASE),
+    # ── Exfiltration / shell-style injection ───────────────────────────────
+    re.compile(r'\$\{.*?\}|\{\{.*?\}\}', re.IGNORECASE),   # template injection
+    re.compile(r'<script[\s>]', re.IGNORECASE),              # XSS-style
+]
+
+
+def _check_injection(message: str) -> str | None:
+    """
+    Validate a raw user message for prompt injection attempts.
+
+    Returns None if the message is clean, or a human-readable
+    rejection reason string if it should be blocked.
+    """
+    # 1. Strip and enforce hard length cap
+    if len(message) > _MAX_MESSAGE_LENGTH:
+        return f"Message is too long (max {_MAX_MESSAGE_LENGTH} characters)."
+
+    # 2. Block null bytes and dangerous control characters
+    if re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', message):
+        return "Message contains invalid characters."
+
+    # 3. Pattern-match against injection signatures
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.search(message):
+            return "Your message contains content that looks like a prompt injection attempt and cannot be processed."
+
+    return None  # clean
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -338,6 +421,12 @@ def chat_view(request):
 
     if not message:
         return Response({"error": "message is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # ── Prompt injection guard ────────────────────────────────────────────
+    rejection_reason = _check_injection(message)
+    if rejection_reason:
+        logger.warning(f"[CHATBOT][INJECTION_GUARD] session={session_id} rejected: {rejection_reason!r}")
+        return Response({"error": rejection_reason}, status=status.HTTP_400_BAD_REQUEST)
 
     user = request.user
 
