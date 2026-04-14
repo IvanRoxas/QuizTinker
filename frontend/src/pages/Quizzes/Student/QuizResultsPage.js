@@ -422,11 +422,10 @@ const QuizResultsPage = () => {
                                             </div>
 
                                             {(() => {
-                                                const letPercentage = totalPointsPossible > 0 ? Math.round(50 + 50 * (score / totalPointsPossible)) : 50;
                                                 return (
                                                     <div className="let-percentage-container" style={{ textAlign: 'center', marginBottom: '16px', width: '100%' }}>
                                                         <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>
-                                                            You scored {letPercentage}%
+                                                            You scored {percentage}%
                                                         </span>
                                                     </div>
                                                 );

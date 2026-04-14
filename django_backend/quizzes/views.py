@@ -778,12 +778,18 @@ def _run_generation(
     num_questions: int,
     bloom_counts: dict = None,
     reference_material: str = "",
-    lang_mode: str = "english",   # kept for compat; always English internally
+    lang_mode: str = "english",
     has_reference_file: bool = False,
     specialization_confidence: str = "high",
+    retry_count: int = 0,
 ) -> list:
-    """Call Gemini, parse the JSON response, persist QuizItems, and return them."""
-
+    import json
+    import urllib.request
+    import random
+    from collections import Counter
+    
+    import random
+    variation_seed = random.randint(10000, 99999)
     prompt_str = _build_let_prompt(
         category=category,
         specialization=specialization,
@@ -792,9 +798,9 @@ def _run_generation(
         bloom_counts=bloom_counts,
         reference_material=reference_material,
     )
+    prompt_str += f"\n\n[VARIATION SEED: {variation_seed}]\nEnsure these generated questions are diverse and unique from previous generations."
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
     generation_config = types.GenerateContentConfig(
         temperature=0.7,
         top_p=0.92,
@@ -804,11 +810,9 @@ def _run_generation(
     )
 
     def _parse_response(raw: str) -> list:
-        if not raw:
-            return []
+        if not raw: return []
         text = raw.strip()
-        if not text:
-            return []
+        if not text: return []
         for fence in ("```json", "```"):
             if text.startswith(fence):
                 text = text[len(fence):]
@@ -830,52 +834,175 @@ def _run_generation(
                 return json.loads(cleaned)
             except json.JSONDecodeError as e2:
                 logger.error(f"[AI QUIZ] Repair failed: {e2}")
-                logger.error(f"[AI QUIZ] Snippet: {text[:300]}")
                 return []
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt_str,
-        config=generation_config
-    )
-    questions_data = _parse_response(response.text)
+    def _call_gemini():
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt_str,
+            config=generation_config
+        )
+        return _parse_response(response.text)
 
+    def _call_groq():
+        try:
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+            )
+            data = json.dumps({
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt_str}],
+                "temperature": 0.8
+            }).encode()
+            with urllib.request.urlopen(req, data=data, timeout=30) as response:
+                res = json.loads(response.read().decode())
+                return _parse_response(res["choices"][0]["message"]["content"])
+        except Exception as e:
+            logger.error(f"[AI QUIZ] Groq failed: {str(e)}")
+            return None
+
+    def _call_openrouter():
+        try:
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+            )
+            data = json.dumps({
+                "model": "meta-llama/llama-3-70b-instruct",
+                "messages": [{"role": "user", "content": prompt_str}],
+                "temperature": 0.8
+            }).encode()
+            with urllib.request.urlopen(req, data=data, timeout=30) as response:
+                res = json.loads(response.read().decode())
+                return _parse_response(res["choices"][0]["message"]["content"])
+        except Exception as e:
+            logger.error(f"[AI QUIZ] OpenRouter failed: {str(e)}")
+            return None
+
+    def _generate_static_fallback():
+        topic = (topic_focus or specialization or category).title()
+        fallback_data = []
+        bloom_mapping = {
+            "remembering": "Remember",
+            "understanding": "Understand",
+            "applying": "Apply",
+            "analyzing": "Analyze",
+            "evaluating": "Evaluate",
+            "creating": "Create"
+        }
+        
+        target_bloom = []
+        if bloom_counts:
+            for b_key, count in bloom_counts.items():
+                target_bloom.extend([bloom_mapping.get(b_key.lower(), "Understand")] * count)
+        else:
+            target_bloom = ["Understand"] * num_questions
+            
+        target_bloom = target_bloom[:num_questions]
+        while len(target_bloom) < num_questions:
+            target_bloom.append("Understand")
+            
+        templates = [
+            ("What is the primary significance of {topic}?", [
+                "It establishes the foundational principles.",
+                "It provides a secondary viewpoint.",
+                "It only applies in rare situations.",
+                "It is generally disregarded by experts."
+            ]),
+            ("Which of the following best describes {topic}?", [
+                "A comprehensive framework for understanding the subject.",
+                "A minor detail in the broader context.",
+                "An outdated theory.",
+                "A controversial and unproven hypothesis."
+            ]),
+            ("In practical application, how is {topic} most effectively utilized?", [
+                "By integrating its core concepts into daily practice.",
+                "By memorizing its definition without context.",
+                "By avoiding its use whenever possible.",
+                "By applying it only in theoretical debates."
+            ]),
+            ("What is a common misconception about {topic}?", [
+                "That its rules apply rigidly without exceptions.",
+                "That it is highly relevant today.",
+                "That it requires careful study.",
+                "That it has evolved over time."
+            ]),
+            ("When evaluating {topic}, what is the main criterion?", [
+                "Its effectiveness and alignment with goals.",
+                "Its historical origin.",
+                "Its popularity among students.",
+                "Its length and complexity."
+            ]),
+            ("How does {topic} influence its surrounding context?", [
+                "It shapes the fundamental understanding and approach.",
+                "It has no significant impact.",
+                "It only dictates minor aesthetic choices.",
+                "It confuses the core objectives."
+            ]),
+            ("Which element is central to the concept of {topic}?", [
+                "Its core identifying characteristics.",
+                "Its alphabetical categorization.",
+                "Its purely theoretical limitations.",
+                "Its unrelated consequences."
+            ])
+        ]
+            
+        for i, b_level in enumerate(target_bloom):
+            q_template, opts_template = random.choice(templates)
+            question_text = f"Regarding {b_level.lower()} skills ({i+1}): {q_template.format(topic=topic)}"
+            
+            opts = [opt for opt in opts_template]
+            ans = opts[0]
+            random.shuffle(opts)
+            fallback_data.append({
+                "question": question_text,
+                "options": opts,
+                "answer": ans,
+                "bloom_level": b_level,
+                "explanation": f"This option aligns best with {topic} and the required cognitive level."
+            })
+        return fallback_data
+
+    questions_data = None
+    used_provider = None
+
+    if retry_count < 3:
+        questions_data = _call_gemini()
+        if not questions_data:
+            raise Exception("Gemini returned empty or invalid response. Retry required.")
+        used_provider = "Gemini"
+    else:
+        logger.info("[AI QUIZ] Retry limit reached. Entering Fallback Chain.")
+        try:
+            questions_data = _call_gemini()
+            if questions_data: used_provider = "Gemini"
+        except Exception:
+            questions_data = None
+            
+        if not questions_data:
+            questions_data = _call_groq()
+            if questions_data: used_provider = "Groq"
+            
+        if not questions_data:
+            questions_data = _call_openrouter()
+            if questions_data: used_provider = "OpenRouter"
+            
+        if not questions_data:
+            logger.warning("[AI QUIZ] All AI providers failed. Using static fallback.")
+            questions_data = _generate_static_fallback()
+            used_provider = "Static Fallback"
+            
     if not isinstance(questions_data, list):
         questions_data = []
     questions_data = [q for q in questions_data if isinstance(q, dict)][:num_questions]
-    logger.info(f"[AI QUIZ] First call returned {len(questions_data)} / {num_questions} questions")
+    logger.info(f"[AI QUIZ] Used Provider: {used_provider}, generated {len(questions_data)} / {num_questions} questions")
 
-    if len(questions_data) < num_questions:
-        remaining = num_questions - len(questions_data)
-        logger.info(f"[AI QUIZ] Truncated. Requesting {remaining} more questions.")
-        retry_prompt = _build_let_prompt(
-            category=category,
-            specialization=specialization,
-            topic_focus=topic_focus,
-            num_questions=remaining,
-            bloom_counts=bloom_counts,
-        )
-        try:
-            retry_resp = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=retry_prompt,
-                config=generation_config,
-            )
-            retry_data = _parse_response(retry_resp.text)
-            if isinstance(retry_data, list):
-                retry_data = [q for q in retry_data if isinstance(q, dict)][:remaining]
-                questions_data.extend(retry_data)
-                logger.info(
-                    f"[AI QUIZ] Retry returned {len(retry_data)} more. Total: {len(questions_data)}"
-                )
-        except Exception as retry_err:
-            logger.warning(
-                f"[AI QUIZ] Retry failed: {retry_err}. Proceeding with {len(questions_data)}."
-            )
-
-    from collections import Counter
-    dist = Counter(q.get("bloom_level") for q in questions_data if isinstance(q, dict))
-    logger.info(f"[AI QUIZ] Bloom distribution: {dict(dist)}")
+    # Save provider metadata
+    quiz_meta = quiz.meta or {}
+    quiz_meta['provider_used'] = used_provider
+    quiz.meta = quiz_meta
+    quiz.save(update_fields=["meta"])
 
     valid_bloom = set(_BLOOM_LEVELS)
     created_items = []
@@ -939,7 +1066,6 @@ def _run_generation(
         created_items.append(item)
 
     return created_items
-
 
 # ===========================================================================
 # Views
@@ -1073,6 +1199,7 @@ def ai_generate_quiz(request):
         deadline         = data.get("deadline")
         category         = data.get("category", "GenEd")
         raw_specialization = data.get("specialization", "").strip()
+        retry_count      = int(data.get("retry_count", 0))
 
         # ── NLP preprocessing ─────────────────────────────────────────────────
         nlp          = _preprocess_prompt_with_gemini(prompt_text)
@@ -1210,6 +1337,8 @@ def ai_generate_quiz(request):
         quiz_meta = {
             "lang_mode": "english",
             "specialization_confidence": specialization_confidence,
+            "bloom_distribution": valid_bloom_counts,
+            "total_questions": num_questions,
         }
         if combined_raw:
             quiz_meta.update({
@@ -1232,6 +1361,8 @@ def ai_generate_quiz(request):
             category=category,
             specialization=specialization,
             meta=quiz_meta,
+            reference_file_1=reference_file_1,
+            reference_file_2=reference_file_2,
         )
 
         from django_q.tasks import async_task
@@ -1247,6 +1378,7 @@ def ai_generate_quiz(request):
             "english",           # lang_mode — always English
             has_reference_file,
             specialization_confidence,
+            retry_count,
         )
 
         return Response(

@@ -589,12 +589,44 @@ const ManageQuizContentPage = () => {
     }
 
     if (quiz.status === 'error') {
+        // Parse raw error into a clean, human-readable message
+        const rawError = quiz?.meta?.error_message || '';
+        let displayError = 'There was an error generating your quiz, or it timed out.';
+        if (rawError) {
+            // Try to extract the actual message from raw Gemini error format
+            const messageMatch = rawError.match(/['"]message['"]:\s*['"]([^'"]+)['"]/);
+            if (messageMatch) {
+                displayError = messageMatch[1];
+            } else if (rawError.includes('UNAVAILABLE') || rawError.includes('503')) {
+                displayError = 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.';
+            } else if (rawError.includes('RESOURCE_EXHAUSTED') || rawError.includes('429')) {
+                displayError = 'The AI service is currently overloaded. Please wait a moment and try again.';
+            } else if (!rawError.includes('{')) {
+                // If it's a plain text message (no JSON), use as-is
+                displayError = rawError;
+            }
+        }
+
         return (
             <div className="manage-message">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', maxWidth: '600px', textAlign: 'center' }}>
-                    <h2 style={{ color: '#E53935' }}>Generation Failed</h2>
-                    <p>{quiz?.meta?.error_message || 'There was an error generating your quiz, or it timed out.'}</p>
-                    <button className="neo-btn" onClick={() => navigate('/dashboard')}>Return to Dashboard</button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', maxWidth: '480px', textAlign: 'center' }}>
+                    {/* Error Icon */}
+                    <div style={{
+                        width: '56px', height: '56px',
+                        borderRadius: '50%',
+                        background: '#FFF3E0',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '2px solid #FB8C00',
+                    }}>
+                        <span style={{ fontSize: '28px' }}>⚠️</span>
+                    </div>
+
+                    <h2 style={{ color: '#E53935', fontWeight: 900, fontSize: '1.3rem', margin: 0 }}>Generation Failed</h2>
+                    <p style={{ color: '#555', fontSize: '0.95rem', lineHeight: '1.5', margin: 0 }}>{displayError}</p>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '8px' }}>
+                        <button className="neo-btn" onClick={() => navigate(-1)}>Go Back</button>
+                    </div>
                 </div>
             </div>
         );

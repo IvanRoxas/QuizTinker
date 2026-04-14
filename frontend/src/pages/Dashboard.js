@@ -154,6 +154,8 @@ const Dashboard = () => {
             } else {
                 setDrafts(prev => [savedQuiz, ...prev]);
             }
+            // Refresh from server so all stat counts (Quizzes Due, etc.) are accurate
+            loadQuizzes();
         } else if (action === 'update') {
             // Update in both lists, they will be filtered by displayList anyway
             setQuizzes(prev => prev.map(q => q.id === savedQuiz.id ? savedQuiz : q));
@@ -188,7 +190,7 @@ const Dashboard = () => {
                     <span className="stat-label">Quizzes Published</span>
                 </div>
                 <div className="stat-card marigold clickable" onClick={() => setDueModalOpen(true)}>
-                    <span className="stat-number">{quizzes.filter(q => q.deadline && q.author !== user?.id).length}</span>
+                    <span className="stat-number">{quizzes.filter(q => q.deadline && new Date(q.deadline) > new Date()).length}</span>
                     <span className="stat-label">Quizzes Due</span>
                 </div>
                 <div className="stat-card blue clickable" onClick={() => navigate('/quizzes', { state: { activeTab: 'draft' } })}>
@@ -210,11 +212,11 @@ const Dashboard = () => {
                             <button className="due-modal-close" onClick={() => setDueModalOpen(false)}>✕</button>
                         </div>
                         <div className="due-modal-body">
-                            {quizzes.filter(q => q.deadline && q.author !== user?.id).length === 0 ? (
+                            {quizzes.filter(q => q.deadline && new Date(q.deadline) > new Date()).length === 0 ? (
                                 <p className="due-empty">No quizzes currently due!</p>
                             ) : (
                                 <div className="due-list">
-                                    {quizzes.filter(q => q.deadline && q.author !== user?.id).map(q => (
+                                    {quizzes.filter(q => q.deadline && new Date(q.deadline) > new Date()).map(q => (
                                         <div key={q.id} className="due-item" onClick={() => { setDueModalOpen(false); navigate(`/quizzes/${q.id}`); }}>
                                             <div className="due-item-info">
                                                 <h3>{q.title}</h3>
@@ -305,7 +307,19 @@ const Dashboard = () => {
                 {/* Content rendering based on tab */}
                 {!loading && displayList.length === 0 ? (
                     activeTab === 'drafts' ? (
-                        <EmptyState title="No Drafts" description="You don't have any drafts right now. Let's get to work and start creating!" />
+                        <>
+                            <EmptyState title="No Drafts" description="You don't have any drafts right now. Let's get to work and start creating!" />
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+                                <button
+                                    className="create-quiz-btn-header"
+                                    onClick={() => setModalOpen(true)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem' }}
+                                >
+                                    <span style={{ fontSize: '1.2rem', fontWeight: 900 }}>+</span>
+                                    <span>Create a Draft</span>
+                                </button>
+                            </div>
+                        </>
                     ) : (
                         (() => {
                             if (activeFilter === 'mine') return <EmptyState title="It's kinda quiet here..." description="You haven't published any quizzes yet!" />;
@@ -335,16 +349,15 @@ const Dashboard = () => {
                                     />
                                 ))}
 
-                                {activeTab === 'drafts' && (
-                                    <div className="quiz-card-neo create-draft-card-neo" onClick={() => setModalOpen(true)}>
-                                        <div className="create-draft-card-content">
-                                            <div className="create-draft-icon-circle">
-                                                <span className="plus-sign">+</span>
-                                            </div>
-                                            <span className="create-draft-label">Create Draft</span>
+                                {/* Create Draft card — always visible so users can create from any tab */}
+                                <div className="quiz-card-neo create-draft-card-neo" onClick={() => setModalOpen(true)}>
+                                    <div className="create-draft-card-content">
+                                        <div className="create-draft-icon-circle">
+                                            <span className="plus-sign">+</span>
                                         </div>
+                                        <span className="create-draft-label">Create Draft</span>
                                     </div>
-                                )}
+                                </div>
                             </>
                         )}
                     </div>

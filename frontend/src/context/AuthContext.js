@@ -12,6 +12,7 @@ export const AuthProvider = ({ children }) => {
     const [aiGenerating, setAiGenerating] = useState(() => {
         return sessionStorage.getItem('aiGenerating') || null;
     });
+    const [aiGenError, setAiGenError] = useState(null);
 
     useEffect(() => {
         if (aiGenerating) {
@@ -159,6 +160,7 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('aiGenerating');
         setAiGenerating(null);
+        setAiGenError(null);
         setUser(null);
     };
 
@@ -171,6 +173,7 @@ export const AuthProvider = ({ children }) => {
             updateUserContext, showToast,
             friendsVersion, bumpFriendsVersion,
             aiGenerating, setAiGenerating,
+            aiGenError, setAiGenError,
         }}>
             {children}
 
@@ -219,13 +222,121 @@ export const AuthProvider = ({ children }) => {
             {toast && (
                 <div style={{
                     position: 'fixed', bottom: '20px', right: '20px',
-                    background: toast.type === 'error' ? '#E53935' : '#4CAF50',
+                    background: toast.type === 'error' ? '#E53935' : toast.type === 'warn' ? '#FB8C00' : '#4CAF50',
                     color: 'white', padding: '15px 25px', borderRadius: '8px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 9999,
                     fontWeight: 'bold', fontSize: '0.9rem',
                     animation: 'fadeIn 0.3s ease-out'
                 }}>
                     {toast.message}
+                </div>
+            )}
+
+            {/* AI Generation Error Overlay */}
+            {aiGenError && (
+                <div style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.45)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 10000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    animation: 'fadeIn 0.3s ease-out',
+                }}>
+                    <div style={{
+                        background: '#ffffff',
+                        border: '3px solid #1e1e1e',
+                        boxShadow: '6px 6px 0px #1e1e1e',
+                        borderRadius: '16px',
+                        padding: '32px 36px',
+                        maxWidth: '480px',
+                        width: '90%',
+                        textAlign: 'center',
+                    }}>
+                        {/* Error Icon */}
+                        <div style={{
+                            width: '56px', height: '56px',
+                            borderRadius: '50%',
+                            background: '#FFF3E0',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 16px auto',
+                            border: '2px solid #FB8C00',
+                        }}>
+                            <span style={{ fontSize: '28px' }}>⚠️</span>
+                        </div>
+
+                        <h2 style={{
+                            color: '#E53935',
+                            fontWeight: 900,
+                            fontSize: '1.3rem',
+                            marginBottom: '12px',
+                            letterSpacing: '-0.01em',
+                        }}>Generation Failed</h2>
+
+                        <p style={{
+                            color: '#555',
+                            fontSize: '0.95rem',
+                            lineHeight: '1.5',
+                            marginBottom: '8px',
+                        }}>
+                            {aiGenError.message}
+                        </p>
+
+                        {aiGenError.remainingRetries > 0 && (
+                            <p style={{
+                                color: '#888',
+                                fontSize: '0.8rem',
+                                marginBottom: '20px',
+                            }}>
+                                {aiGenError.remainingRetries} {aiGenError.remainingRetries === 1 ? 'retry' : 'retries'} remaining before using offline questions
+                            </p>
+                        )}
+
+                        <div style={{
+                            display: 'flex',
+                            gap: '12px',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap',
+                        }}>
+                            <button
+                                onClick={() => setAiGenError(null)}
+                                style={{
+                                    padding: '10px 22px',
+                                    border: '3px solid #1e1e1e',
+                                    borderRadius: '10px',
+                                    background: '#ffffff',
+                                    color: '#1e1e1e',
+                                    fontWeight: 800,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    boxShadow: '3px 3px 0px #1e1e1e',
+                                    transition: 'all 0.15s ease',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.04em',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => aiGenError.retryFn && aiGenError.retryFn()}
+                                style={{
+                                    padding: '10px 22px',
+                                    border: '3px solid #1e1e1e',
+                                    borderRadius: '10px',
+                                    background: '#5A82E6',
+                                    color: '#ffffff',
+                                    fontWeight: 800,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    boxShadow: '3px 3px 0px #1e1e1e',
+                                    transition: 'all 0.15s ease',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.04em',
+                                }}
+                            >
+                                {aiGenError.btnText || 'Retry Again'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

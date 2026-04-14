@@ -1,0 +1,10 @@
+--- django_backend/quizzes/urls.py
++++ django_backend/quizzes/urls.py
+@@ -10,6 +10,7 @@
+     path('<int:quiz_id>/start/', views.quiz_start_view, name='quiz_start'),
+     path('<int:quiz_id>/submit/', views.quiz_submit_view, name='quiz_submit'),
+     path('<int:quiz_id>/items/', views.quiz_items_view, name='quiz_items'),
++    path('<int:quiz_id>/retry_ai/', views.quiz_retry_ai_view, name='quiz_retry_ai'),
+     
+     # Items
+     path('items/<int:item_id>/', views.quiz_item_detail_view, name='quiz_item_detail'),

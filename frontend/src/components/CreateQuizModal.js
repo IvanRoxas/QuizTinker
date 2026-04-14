@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, X, Trash2, Settings, ExternalLink, Search, Check, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { createQuiz, updateQuiz, aiGenerateQuiz } from '../api/quizApi';
+import { createQuiz, updateQuiz, aiGenerateQuiz, createQuizItem } from '../api/quizApi';
+import { fallbackQuestionBank } from '../utils/fallbackQuestionBank';
 import axiosClient from '../api/axiosClient';
 import './CreateQuizModal.css';
 import mediaUrl from '../utils/mediaUrl';
@@ -30,9 +31,13 @@ const truncateFilename = (name, maxLength = 30) => {
 
 const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const navigate = useNavigate();
-    const { showToast, user, aiGenerating, setAiGenerating } = useAuth();
+    const { showToast, user, aiGenerating, setAiGenerating, setAiGenError } = useAuth();
     const fileRef = useRef(null);
     const referenceFileRef = useRef(null);
+
+    // ── Retry logic refs (stable across re-renders, no stale closures) ──
+    const retryCountRef = useRef(0);
+    const handleContinueRef = useRef(null);
 
     // ── Form state (persisted across Manual/AI tab switches) ──
     const [title, setTitle] = useState('');
@@ -86,6 +91,13 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
     const isAuthor = quizData ? (Number(quizData.author) === Number(user?.id)) : true;
     const viewOnly = isEditing && !isAuthor;
 
+    // Reset retry counter whenever the modal opens fresh
+    useEffect(() => {
+        if (isOpen) {
+            retryCountRef.current = 0;
+        }
+    }, [isOpen]);
+
     // Timezone 
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const tzAbbr = new Date().toLocaleTimeString('en-us', { timeZoneName: 'short' }).split(' ').pop();
@@ -112,6 +124,20 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             if (quizData.preview_image) {
                 const url = mediaUrl(quizData.preview_image);
                 setImagePreview(url);
+            }
+
+            if (quizData.meta && quizData.meta.bloom_distribution) {
+                const bd = quizData.meta.bloom_distribution;
+                setQuestions([
+                    bd.Remember || 0,
+                    bd.Understand || 0,
+                    bd.Apply || 0,
+                    bd.Analyze || 0,
+                    bd.Evaluate || 0,
+                    bd.Create || 0,
+                ]);
+            } else {
+                setQuestions([0, 0, 0, 0, 0, 0]);
             }
         } else {
             // Reset for create mode
@@ -335,6 +361,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 };
 
                 let aiData;
+                const currentRetries = retryCountRef.current || 0;
                 if (referenceFiles.length > 0) {
                     aiData = new FormData();
                     aiData.append('title', title.trim());
@@ -346,6 +373,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     aiData.append('specialization', specialization);
                     aiData.append('prompt', promptText);
                     aiData.append('bloom_distribution', JSON.stringify(distribution));
+                    aiData.append('retry_count', currentRetries);
 
                     referenceFiles.forEach((file, idx) => {
                         aiData.append(`reference_file_${idx + 1}`, file);
@@ -360,15 +388,101 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                         category: category,
                         specialization: specialization,
                         prompt: promptText,
-                        bloom_distribution: distribution
+                        bloom_distribution: distribution,
+                        retry_count: currentRetries
                     };
                 }
-                setAiGenerating(title.trim());
-                const generatedData = await aiGenerateQuiz(aiData);
-                onSaved && onSaved(generatedData, 'create');
-                resetBloom();
-                onClose();
-                navigate(`/quizzes/edit/${generatedData.id}`);
+                
+                // Show generating message with progress
+                let btnText = "generating quiz";
+                if (currentRetries === 1) btnText = "Retry 1/3 - generating quiz";
+                if (currentRetries === 2) btnText = "Retry 2/3 - generating quiz";
+                if (currentRetries >= 3) btnText = "Switching to backup AI - generating quiz";
+                setAiGenerating(`${title.trim()} - ${btnText}`);
+
+                // ── AI Generation — single attempt, user-controlled retries ──────
+                try {
+                    const generatedData = await aiGenerateQuiz(aiData);
+                    
+                    // Wait for generation to finish by polling the background task
+                    const { fetchQuiz } = await import('../api/quizApi');
+                    let isGenerating = true;
+                    let pollAttempts = 0;
+                    let resultData = null;
+                    
+                    while (isGenerating && pollAttempts < 20) {
+                        await new Promise(r => setTimeout(r, 3000)); // wait 3 seconds
+                        const currentQuiz = await fetchQuiz(generatedData.id);
+                        if (currentQuiz.status === 'published' || currentQuiz.status === 'draft') {
+                            isGenerating = false;
+                            resultData = currentQuiz;
+                        } else if (currentQuiz.status === 'error') {
+                            throw new Error(currentQuiz.meta?.error_message || "Generation failed");
+                        }
+                        pollAttempts++;
+                    }
+                    
+                    if (isGenerating) {
+                        throw new Error("Timeout: Generation took too long.");
+                    }
+                    
+                    // Success — reset counter, navigate to editor
+                    setAiGenerating(null);
+                    retryCountRef.current = 0;
+                    onSaved && onSaved(resultData, 'create');
+                    resetBloom();
+                    onClose();
+                    navigate(`/quizzes/edit/${resultData.id}`);
+                } catch (aiErr) {
+                    console.warn('AI generation attempt failed:', aiErr);
+                    setAiGenerating(null);
+
+                    // ── Parse error into user-friendly message ──
+                    const rawMsg = aiErr.response?.data?.message || aiErr.response?.data?.error || aiErr.message || 'Unknown error';
+                    let friendlyMsg = rawMsg;
+                    if (typeof rawMsg === 'string') {
+                        const messageMatch = rawMsg.match(/['"]message['"]:\s*['"]([^'"]+)['"]/);
+                        if (messageMatch) {
+                            friendlyMsg = messageMatch[1];
+                        } else if (rawMsg.includes('UNAVAILABLE') || rawMsg.includes('503')) {
+                            friendlyMsg = 'The AI service is experiencing high demand. Please try again shortly.';
+                        } else if (rawMsg.includes('RESOURCE_EXHAUSTED') || rawMsg.includes('429')) {
+                            friendlyMsg = 'The AI service is currently overloaded. Please wait a moment and try again.';
+                        }
+                    }
+
+                    // ── Increment retry counter ──
+                    retryCountRef.current += 1;
+                    const nextRetries = retryCountRef.current;
+
+                    let overlayBtnText = "Retry 1/3";
+                    if (nextRetries === 1) overlayBtnText = "Retry 1/3";
+                    if (nextRetries === 2) overlayBtnText = "Retry 2/3";
+                    if (nextRetries === 3) overlayBtnText = "Final Attempt";
+                    if (nextRetries > 3) overlayBtnText = "Switching to backup AI";
+
+                    // ═══ Show error overlay — user can Retry or go to Dashboard ═══
+                    const remainingRetries = Math.max(0, 3 - nextRetries);
+                    setAiGenError({
+                        message: friendlyMsg,
+                        retryCount: currentRetries,
+                        remainingRetries,
+                        btnText: overlayBtnText,
+                        // retryFn uses handleContinueRef to ALWAYS call
+                        // the latest handleContinue — never a stale closure.
+                        retryFn: () => {
+                            setAiGenError(null);
+                            // Tiny delay lets React flush the error-state clear
+                            setTimeout(() => {
+                                if (handleContinueRef.current) {
+                                    handleContinueRef.current();
+                                }
+                            }, 50);
+                        },
+                    });
+                    setContinuing(false);
+                    return; // Exit early — don't throw to outer catch
+                }
             } else {
                 const data = buildUpdateData('draft');
                 let saved;
@@ -391,12 +505,24 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
         }
     };
 
+    // ── Always point the ref to the LATEST handleContinue (runs every render) ──
+    handleContinueRef.current = handleContinue;
+
     // ── Publish ──
     const handlePublish = async () => {
         if (!title.trim()) return;
         if (availability === 'specific_friends' && selectedFriends.length === 0) {
             showToast('Please select at least one friend to share with.', 'error');
             return;
+        }
+
+        // Block publishing if the deadline is already in the past
+        if (deadline) {
+            const deadlineDate = new Date(deadline);
+            if (deadlineDate < new Date()) {
+                showToast('Cannot publish: the deadline is in the past. Please set a future date or clear the deadline field.', 'error');
+                return;
+            }
         }
 
         setPublishing(true);
@@ -683,6 +809,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                         className="neo-select"
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
+                                        disabled={isEditing && activeTab === 'ai'}
                                     >
                                         <option value="General Education">General Education</option>
                                         <option value="Professional Education">Professional Education</option>
@@ -696,6 +823,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                             className="neo-select"
                                             value={specialization}
                                             onChange={(e) => setSpecialization(e.target.value)}
+                                            disabled={isEditing && activeTab === 'ai'}
                                         >
                                             <option value="English">English</option>
                                             <option value="Filipino">Filipino</option>
@@ -745,9 +873,10 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                                     textAlign: 'center',
                                                     fontWeight: 800,
                                                     border: '2px solid var(--charcoal)',
-                                                    borderRadius: '0.4rem'
+                                                    borderRadius: '0.4rem',
+                                                    backgroundColor: (isEditing && activeTab === 'ai') ? '#f0f0f0' : 'white'
                                                 }}
-                                                disabled={totalQuestions >= 60 && questions[index] === 0}
+                                                disabled={(isEditing && activeTab === 'ai') || (totalQuestions >= 60 && questions[index] === 0)}
                                             />
                                         </div>
                                     ))}
@@ -779,75 +908,97 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                         placeholder="Generate LET exam questions about Science focusing on Photosynthesis."
                                         value={promptText}
                                         onChange={(e) => setPromptText(e.target.value)}
+                                        disabled={isEditing && activeTab === 'ai'}
                                         style={{ flex: 1, minHeight: '120px' }}
                                     />
 
                                     <label>Reference Files</label>
                                     <div className="reference-files-container" style={{ flexShrink: 0, marginTop: '0rem', padding: '1rem', border: '2px dashed var(--charcoal)', borderRadius: '0.75rem', background: '#fafafa' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: referenceFiles.length > 0 ? '1rem' : '0' }}>
-                                            <label style={{ margin: 0, fontWeight: 800 }}>Reference Files (Max 2, 10MB each)</label>
-                                            {referenceFiles.length === 0 && (
-                                                <button
-                                                    type="button"
-                                                    style={{ padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer' }}
-                                                    onClick={() => referenceFileRef.current?.click()}
-                                                >
-                                                    Upload Reference File
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <input
-                                            type="file"
-                                            ref={referenceFileRef}
-                                            style={{ display: 'none' }}
-                                            accept=".pdf,.docx,.pptx,.txt"
-                                            multiple
-                                            onChange={handleReferenceFileSelect}
-                                        />
-
-                                        {referenceFiles.length > 0 && (
+                                        {isEditing && activeTab === 'ai' ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                {referenceFiles.map((file, idx) => (
-                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'white', border: '2px solid var(--charcoal)', borderRadius: '0.5rem' }}>
-                                                        <span
-                                                            style={{
-                                                                fontSize: '0.85rem',
-                                                                fontWeight: 700,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                                flex: 1
-                                                            }}
-                                                        >
-                                                            Reference File {idx + 1}: {truncateFilename(file.name)}
-                                                        </span>
+                                                <label style={{ margin: 0, fontWeight: 800, marginBottom: '0.5rem' }}>Saved Reference Files</label>
+                                                {quizData?.reference_file_1 ? (
+                                                    <a href={mediaUrl(quizData.reference_file_1)} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', background: 'white', border: '2px solid var(--charcoal)', borderRadius: '0.5rem', textDecoration: 'none', color: 'var(--charcoal)', fontWeight: 700 }}>
+                                                        <ExternalLink size={16} /> Reference File 1
+                                                    </a>
+                                                ) : null}
+                                                {quizData?.reference_file_2 ? (
+                                                    <a href={mediaUrl(quizData.reference_file_2)} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', background: 'white', border: '2px solid var(--charcoal)', borderRadius: '0.5rem', textDecoration: 'none', color: 'var(--charcoal)', fontWeight: 700 }}>
+                                                        <ExternalLink size={16} /> Reference File 2
+                                                    </a>
+                                                ) : null}
+                                                {!quizData?.reference_file_1 && !quizData?.reference_file_2 && (
+                                                    <span style={{ fontSize: '0.85rem' }}>No reference files uploaded.</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: referenceFiles.length > 0 ? '1rem' : '0' }}>
+                                                    <label style={{ margin: 0, fontWeight: 800 }}>Reference Files (Max 2, 10MB each)</label>
+                                                    {referenceFiles.length === 0 && (
                                                         <button
                                                             type="button"
-                                                            onClick={() => removeReferenceFile(idx)}
-                                                            style={{ background: 'transparent', border: 'none', color: '#E53935', cursor: 'pointer', padding: '0.2rem' }}
+                                                            style={{ padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer' }}
+                                                            onClick={() => referenceFileRef.current?.click()}
                                                         >
-                                                            <Trash2 size={16} />
+                                                            Upload Reference File
                                                         </button>
+                                                    )}
+                                                </div>
+
+                                                <input
+                                                    type="file"
+                                                    ref={referenceFileRef}
+                                                    style={{ display: 'none' }}
+                                                    accept=".pdf,.docx,.pptx,.txt"
+                                                    multiple
+                                                    onChange={handleReferenceFileSelect}
+                                                />
+
+                                                {referenceFiles.length > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                        {referenceFiles.map((file, idx) => (
+                                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'white', border: '2px solid var(--charcoal)', borderRadius: '0.5rem' }}>
+                                                                <span
+                                                                    style={{
+                                                                        fontSize: '0.85rem',
+                                                                        fontWeight: 700,
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                        flex: 1
+                                                                    }}
+                                                                >
+                                                                    Reference File {idx + 1}: {truncateFilename(file.name)}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeReferenceFile(idx)}
+                                                                    style={{ background: 'transparent', border: 'none', color: '#E53935', cursor: 'pointer', padding: '0.2rem' }}
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                )}
 
-                                        {referenceFiles.length > 0 && referenceFiles.length < 2 && (
-                                            <button
-                                                type="button"
-                                                style={{ marginTop: '0.75rem', padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer', width: '100%' }}
-                                                onClick={() => referenceFileRef.current?.click()}
-                                            >
-                                                Upload Another File
-                                            </button>
-                                        )}
+                                                {referenceFiles.length > 0 && referenceFiles.length < 2 && (
+                                                    <button
+                                                        type="button"
+                                                        style={{ marginTop: '0.75rem', padding: '0.4rem 1rem', background: 'var(--blue)', color: 'white', borderRadius: '0.5rem', fontWeight: 800, border: '2px solid var(--charcoal)', cursor: 'pointer', width: '100%' }}
+                                                        onClick={() => referenceFileRef.current?.click()}
+                                                    >
+                                                        Upload Another File
+                                                    </button>
+                                                )}
 
-                                        {referenceFiles.length >= 2 && (
-                                            <div style={{ marginTop: '1rem', fontSize: '0.85rem', fontWeight: 800, color: 'var(--charcoal)', padding: '0.5rem', background: '#FFD6A5', border: '2px solid var(--charcoal)', borderRadius: '0.5rem', textAlign: 'center' }}>
-                                                Maximum of 2 reference files reached.
-                                            </div>
+                                                {referenceFiles.length >= 2 && (
+                                                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', fontWeight: 800, color: 'var(--charcoal)', padding: '0.5rem', background: '#FFD6A5', border: '2px solid var(--charcoal)', borderRadius: '0.5rem', textAlign: 'center' }}>
+                                                        Maximum of 2 reference files reached.
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </>

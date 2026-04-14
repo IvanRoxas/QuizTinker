@@ -4,7 +4,7 @@ from quizzes.views import _run_generation
 
 logger = logging.getLogger(__name__)
 
-def generate_quiz_task(quiz_id, category, specialization, topic_focus, num_questions, bloom_counts, reference_material, lang_mode, has_reference_file, specialization_confidence):
+def generate_quiz_task(quiz_id, category, specialization, topic_focus, num_questions, bloom_counts, reference_material, lang_mode, has_reference_file, specialization_confidence, retry_count=0):
     try:
         quiz = Quiz.objects.get(id=quiz_id)
         
@@ -19,6 +19,7 @@ def generate_quiz_task(quiz_id, category, specialization, topic_focus, num_quest
             lang_mode=lang_mode,
             has_reference_file=has_reference_file,
             specialization_confidence=specialization_confidence,
+            retry_count=retry_count,
         )
         
         if created_items:

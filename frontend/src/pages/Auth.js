@@ -160,7 +160,15 @@ const Auth = () => {
             }
         } catch (error) {
             if (error.response?.status === 422) {
-                setErrors(error.response.data.errors);
+                const rawErrors = error.response.data.errors || {};
+                // During LOGIN: the backend attaches credential-mismatch errors to
+                // `errors.email`. Re-map those to `errors.general` so the message
+                // appears beneath the submit button, not beneath the email field.
+                if (isLogin && rawErrors.email) {
+                    setErrors({ general: Array.isArray(rawErrors.email) ? rawErrors.email[0] : rawErrors.email });
+                } else {
+                    setErrors(rawErrors);
+                }
             } else if (error.response?.status === 429) {
                 setErrors({ general: error.response.data.detail || 'Too many attempts. Please try again later.' });
             } else if (error.response?.status === 403) {
@@ -368,7 +376,7 @@ const Auth = () => {
                                                 onChange={handleInputChange}
                                                 required
                                             />
-                                            {errors.email && <span className="error-text">{errors.email[0]}</span>}
+                                            {/* errors.email is remapped to errors.general for login; no inline display needed here */}
                                         </div>
 
                                         <div className="input-group">

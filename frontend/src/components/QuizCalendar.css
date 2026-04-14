@@ -246,6 +246,12 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+/* Today + deadline: add orange ring to show both states */
+.day-cell.today.clickable {
+    outline: 3px solid var(--neo-orange, #FF6B2B);
+    outline-offset: -2px;
+}
+
 .day-cell.clickable:hover {
     filter: brightness(0.95);
     transform: scale(1.05);
@@ -287,9 +293,17 @@
 .blue-dot {
     width: 5px;
     height: 5px;
-    background: var(--neo-blue);
+    background: var(--neo-orange, #FF6B2B);
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* When deadline dot is inside today's highlighted cell — make it white so it's visible */
+.day-cell.today .blue-dot,
+.day-cell.today .red-dot {
+    background: #ffffff;
+    border-color: rgba(255,255,255,0.6);
+    animation: none;
 }
 
 .red-dot {
