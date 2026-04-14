@@ -8,6 +8,9 @@ echo "======================================"
 # 1. Ask for variables
 read -p "Enter your EC2 Public IP or Domain: " EC2_IP
 read -p "Enter the Git Repo URL to clone (e.g. https://github.com/user/repo.git): " REPO_URL
+read -p "Enter the Git Branch to clone [default: main]: " TARGET_BRANCH
+TARGET_BRANCH=${TARGET_BRANCH:-main}
+
 read -p "Enter your RDS Endpoint (e.g. db.abc.ap-southeast-2.rds.amazonaws.com): " RDS_ENDPOINT
 read -s -p "Enter your DB Password: " DB_PASSWORD
 echo ""
@@ -18,6 +21,10 @@ read -p "Enter your Email Host User (e.g. danielespela251@gmail.com): " EMAIL_HO
 read -s -p "Enter your Email App Password: " EMAIL_HOST_PASSWORD
 echo ""
 read -s -p "Enter your Gemini API Key: " GEMINI_API_KEY
+echo ""
+read -s -p "Enter your Groq API Key (Optional, press Enter to skip): " GROQ_API_KEY
+echo ""
+read -s -p "Enter your OpenRouter API Key (Optional, press Enter to skip): " OPENROUTER_API_KEY
 echo ""
 
 # 2. Add Swap Space (2GB)
@@ -45,7 +52,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y nodejs
 # 4. Clone / Setup App Directory
 echo "[3/8] Setting up the application directory..."
 if [ ! -d "/home/ubuntu/QuizTinker" ]; then
-    git clone $REPO_URL /home/ubuntu/QuizTinker
+    git clone -b $TARGET_BRANCH $REPO_URL /home/ubuntu/QuizTinker
 else
     echo "/home/ubuntu/QuizTinker already exists. Skipping clone..."
 fi
@@ -78,10 +85,12 @@ AWS_S3_REGION_NAME=ap-southeast-2
 AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
 
-# EMAIL & GEMINI
+# EMAIL & AI PROVIDERS
 EMAIL_HOST_USER=$EMAIL_HOST_USER
 EMAIL_HOST_PASSWORD=$EMAIL_HOST_PASSWORD
 GEMINI_API_KEY=$GEMINI_API_KEY
+GROQ_API_KEY=$GROQ_API_KEY
+OPENROUTER_API_KEY=$OPENROUTER_API_KEY
 
 # URLS
 ADMIN_URL=qt-secret-portal/
