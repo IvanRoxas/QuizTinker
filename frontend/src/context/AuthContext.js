@@ -272,14 +272,32 @@ export const AuthProvider = ({ children }) => {
                             letterSpacing: '-0.01em',
                         }}>Generation Failed</h2>
 
-                        <p style={{
-                            color: '#555',
-                            fontSize: '0.95rem',
-                            lineHeight: '1.5',
-                            marginBottom: '8px',
+                        <div style={{
+                            background: 'rgba(229, 57, 53, 0.05)',
+                            border: '1px solid rgba(229, 57, 53, 0.15)',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            color: '#d32f2f',
+                            fontSize: '0.85rem',
+                            lineHeight: '1.6',
+                            marginBottom: '16px',
+                            textAlign: 'left',
+                            wordBreak: 'break-word',
+                            maxHeight: '150px',
+                            overflowY: 'auto'
                         }}>
-                            {aiGenError.message}
-                        </p>
+                            {aiGenError.message && aiGenError.message.split(/\\n|\n/).filter(line => line.trim()).map((line, i) => (
+                                <div key={i} style={{ marginBottom: '4px' }}>
+                                    {line.trim().startsWith('*') ? (
+                                        <div style={{ marginLeft: '12px', fontWeight: 500 }}>
+                                            • {line.replace(/^\*\s*/, '')}
+                                        </div>
+                                    ) : (
+                                        line
+                                    )}
+                                </div>
+                            ))}
+                        </div>
 
                         {aiGenError.remainingRetries > 0 && (
                             <p style={{
