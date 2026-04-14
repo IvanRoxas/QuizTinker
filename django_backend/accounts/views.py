@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import uuid
 
 from django.conf import settings
@@ -22,8 +23,17 @@ from .serializers import (
     UserSerializer,
 )
 from rest_framework.authtoken.models import Token
+from quiztinker.throttles import (
+    get_client_ip,
+    is_otp_blocked,
+    check_otp_send_rate,
+    record_otp_failure,
+    clear_otp_failures,
+    OTP_BLOCKED_MSG,
+)
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -55,6 +65,19 @@ def csrf_token_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_view(request):
+    # ── OTP brute-force guard ─────────────────────────────────────────────
+    ip = get_client_ip(request)
+    if is_otp_blocked(ip):
+        return Response(
+            {'errors': {'email': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+    if not check_otp_send_rate(ip):
+        return Response(
+            {'errors': {'email': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     serializer = RegisterSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     d = serializer.validated_data
@@ -660,9 +683,17 @@ def delete_notification_view(request, notification_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
+    # ── OTP brute-force guard ─────────────────────────────────────────────
+    ip = get_client_ip(request)
+    if is_otp_blocked(ip):
+        return Response(
+            {'errors': {'email': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     serializer = LoginSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
- 
+
     # Look up user by email
     user_obj = User.objects.filter(email=serializer.validated_data['email']).first()
     if not user_obj:
@@ -670,34 +701,58 @@ def login_view(request):
             {'errors': {'email': ['The provided credentials do not match our records.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
-    # Verify password
+
+    # Verify password via Django Axes-aware authenticate()
     user = authenticate(
         request,
         username=user_obj.username,
         password=serializer.validated_data['password'],
     )
     if user is None:
+        from axes.handlers.proxy import AxesProxyHandler
+        from axes.helpers import get_cool_off
+
+        credentials = {'username': user_obj.username}
+        if not AxesProxyHandler.is_allowed(request, credentials=credentials):
+            cool_off = get_cool_off()
+            if cool_off:
+                hours, remainder = divmod(cool_off.total_seconds(), 3600)
+                minutes, _ = divmod(remainder, 60)
+                if hours >= 1:
+                    time_str = f"{int(hours)} hour{'s' if int(hours) != 1 else ''}"
+                else:
+                    time_str = f"{int(minutes)} minute{'s' if int(minutes) != 1 else ''}"
+            else:
+                time_str = "a while"
+
+            return Response(
+                {'errors': {'email': [f'You have been blocked for too many login attempts. Please try again after {time_str}.']}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
         return Response(
             {'errors': {'email': ['The provided credentials do not match our records.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
-    # ── 2FA: Generate OTP and send via email (async) ──────────────────────────
+
+    # ── OTP send rate limit (checked after credential success to avoid leaking user existence) ──
+    if not check_otp_send_rate(ip):
+        logger.warning('[OTP_GUARD] OTP send rate exceeded for ip=%s email=%s.', ip, user.email)
+        return Response(
+            {'errors': {'email': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    # ── 2FA: Generate OTP and send via email (async) ──────────────────────
     otp = OTPCode.generate_for(user)
- 
+
     try:
         from django_q.tasks import async_task
-        async_task(
-            'accounts.tasks.send_otp_email_task',
-            user.email,
-            otp.code,
-        )
+        async_task('accounts.tasks.send_otp_email_task', user.email, otp.code)
     except Exception:
-        # Fallback: send synchronously if Django Q2 worker is not running
         from .tasks import send_otp_email_task
         send_otp_email_task(user.email, otp.code)
- 
+
     # Do NOT issue the token yet — signal the frontend to show the OTP screen
     return Response(
         {'otp_required': True, 'email': user.email},
@@ -711,27 +766,35 @@ def verify_otp_view(request):
     """
     POST /api/login/verify-otp/
     Body: { "email": "...", "otp": "123456" }
- 
-    Validates the OTP. On success, logs the user in and returns the auth token.
-    On failure, returns a 422 with an error message.
+
+    Validates the OTP. On success, logs the user in and returns a fresh auth
+    token (old token deleted so the 24-hour expiry clock resets).
     """
-    email = request.data.get('email', '').strip()
+    # ── OTP brute-force guard ─────────────────────────────────────────────
+    ip = get_client_ip(request)
+    if is_otp_blocked(ip):
+        return Response(
+            {'errors': {'otp': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    email        = request.data.get('email', '').strip()
     submitted_otp = request.data.get('otp', '').strip()
- 
+
     if not email or not submitted_otp:
         return Response(
             {'errors': {'otp': ['Email and OTP code are required.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
-    # Find user
+
+    # Find user — return generic error to avoid user-enumeration
     user = User.objects.filter(email=email).first()
     if not user:
         return Response(
             {'errors': {'otp': ['Invalid or expired code.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
+
     # Find OTP record
     try:
         otp_record = OTPCode.objects.get(user=user)
@@ -740,20 +803,31 @@ def verify_otp_view(request):
             {'errors': {'otp': ['No OTP was requested. Please log in again.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
+
     # Validate code and expiry
     if not otp_record.is_valid(submitted_otp):
+        newly_blocked = record_otp_failure(email, ip)
+        if newly_blocked:
+            logger.warning('[OTP_GUARD] IP %s blocked after max OTP failures (email=%s).', ip, email)
+            return Response(
+                {'errors': {'otp': [OTP_BLOCKED_MSG]}},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         return Response(
             {'errors': {'otp': ['Invalid or expired code. Please try again.']}},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
- 
-    # ── Success: delete OTP (one-time use), log in, return token ─────────────
+
+    # ── Success: delete OTP, clear failure counter, issue fresh token ─────
     otp_record.delete()
- 
+    clear_otp_failures(email)
+
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    token, _ = Token.objects.get_or_create(user=user)
- 
+
+    # Always recreate the token so the 24h expiry clock starts fresh
+    Token.objects.filter(user=user).delete()
+    token = Token.objects.create(user=user)
+
     return Response({
         'user': UserSerializer(user).data,
         'token': token.key,
@@ -768,23 +842,52 @@ def verify_registration_otp_view(request):
     """
     from django.core.cache import cache
 
-    email = request.data.get('email', '').strip()
+    # ── OTP brute-force guard ─────────────────────────────────────────────
+    ip = get_client_ip(request)
+    if is_otp_blocked(ip):
+        return Response(
+            {'errors': {'otp': [OTP_BLOCKED_MSG]}},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    email         = request.data.get('email', '').strip()
     submitted_otp = request.data.get('otp', '').strip()
 
     if not email or not submitted_otp:
-        return Response({'errors': {'otp': ['Email and OTP code are required.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        return Response(
+            {'errors': {'otp': ['Email and OTP code are required.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
 
     cached = cache.get(f"reg_otp_{email}")
     if not cached:
-        return Response({'errors': {'otp': ['Registration session expired. Please sign up again.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-    
+        return Response(
+            {'errors': {'otp': ['Registration session expired. Please sign up again.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
     if str(cached['otp']) != str(submitted_otp):
-        return Response({'errors': {'otp': ['Invalid code. Please try again.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        newly_blocked = record_otp_failure(email, ip)
+        if newly_blocked:
+            logger.warning('[OTP_GUARD] IP %s blocked after max registration OTP failures (email=%s).', ip, email)
+            return Response(
+                {'errors': {'otp': [OTP_BLOCKED_MSG]}},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        return Response(
+            {'errors': {'otp': ['Invalid code. Please try again.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    # ── OTP correct — clear failure counter ───────────────────────────────
+    clear_otp_failures(email)
 
     d = cached['data']
-    
     if User.objects.filter(email=d['email']).exists() or User.objects.filter(username=d['name']).exists():
-         return Response({'errors': {'general': ['User already exists.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        return Response(
+            {'errors': {'general': ['User already exists.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
 
     try:
         user = User.objects.create_user(
@@ -795,12 +898,18 @@ def verify_registration_otp_view(request):
             last_name=d.get('last_name', '')
         )
     except Exception:
-        return Response({'errors': {'general': ['Failed to create account.']}}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-        
+        return Response(
+            {'errors': {'general': ['Failed to create account.']}},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
     cache.delete(f"reg_otp_{email}")
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    token, _ = Token.objects.get_or_create(user=user)
+
+    # Always create a fresh token so the 24h expiry clock starts from now
+    Token.objects.filter(user=user).delete()
+    token = Token.objects.create(user=user)
 
     return Response({
         'user': UserSerializer(user).data,
