@@ -182,16 +182,24 @@ Paste the following into your `.env` file and fill in your own values:
 
 SECRET_KEY=any-long-random-string-you-make-up
 DEBUG=True
-DATABASE_URL=postgres://daniel:password123@localhost:5432/quiztinker
+DATABASE_URL=postgres://user:password@localhost:5432/quiztinker
 FRONTEND_URL=http://localhost:3000
 BACKEND_URL=http://localhost:8000
 
 # Get this from https://aistudio.google.com/
-GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_API_KEY=your-gemini-api-key
+GROQ_API_KEY=your-groq-api-key
+OPENROUTER_API_KEY=your-openrouter-api-key
 
 # Use a Gmail account with an App Password
 EMAIL_HOST_USER=youremail@gmail.com
 EMAIL_HOST_PASSWORD=your-16-character-app-password
+
+#Use AWS Credentials
+AWS_STORAGE_BUCKET_NAME=aws-bucket-name
+AWS_S3_REGION_NAME=ap-southeast-2
+AWS_ACCESS_KEY_ID=aws-access-key
+AWS_SECRET_ACCESS_KEY=aws-secret-access
 ```
 
 #### Getting each value
