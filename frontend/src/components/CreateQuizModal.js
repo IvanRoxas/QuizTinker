@@ -622,8 +622,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                 >                    <X size={20} />
                 </button>
 
-
-                {/* Generation Type Toggle (Hidden when editing) */}
                 {!isEditing && (
                     <div className="generation-type-toggle" style={isBusy ? { pointerEvents: 'none', opacity: 0.6 } : {}}>
                         <button
@@ -641,11 +639,8 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     </div>
                 )}
 
-                {/* ── Tab Content ── */}
                 <div className="modal-body scrollable-modal-body" style={isBusy ? { pointerEvents: 'none', opacity: 0.6 } : {}}>
-                    {/* Left Column — Inputs */}
                     <div className="modal-form-left">
-                        {/* Title & Status Badge */}
                         <div className="modal-title-container">
                             <div className="form-group title-group-nested">
                                 {viewOnly ? (
@@ -661,13 +656,11 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                                 )}
                             </div>
 
-                            {/* Status Badge */}
                             <div className={`status-badge ${quizData?.status || 'draft'}`}>
                                 {quizData?.status === 'published' ? 'Published' : 'Draft'}
                             </div>
                         </div>
 
-                        {/* Author Context (View Mode Only) */}
                         {viewOnly && authorName && (
                             <div className="author-context-row">
                                 <div className="author-mini-avatar">
@@ -681,7 +674,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* Row: Subtitle, Attempts, Availability (Admin Settings - Hidden in View Mode) */}
                         {!viewOnly && (
                             <div className="form-row-three">
                                 <div className="form-group">
@@ -722,7 +714,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* Meta Pills (View Mode Only) */}
                         {viewOnly && (
                             <div className="view-meta-pills">
                                 <div className="view-meta-pill">
@@ -734,7 +725,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* LMS Row: Deadline & Late Toggle (Hidden in View Mode) */}
                         {!viewOnly && (
                             <div className="form-row-two lms-row">
                                 <div className="form-group">
@@ -759,7 +749,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* Targeted Sharing Interface */}
                         {availability === 'specific_friends' && !viewOnly && (
                             <div className="friend-sharing-interface">
                                 <label>Select Friends to Share With</label>
@@ -799,7 +788,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* Category & Specialization (AI Mode Only) */}
                         {!viewOnly && activeTab === 'ai' && (
                             <div className="form-row-two">
                                 <div className="form-group">
@@ -840,7 +828,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             </div>
                         )}
 
-                        {/* Blooms Question Count (AI Mode Only) - 6 parts*/}
                         {!viewOnly && activeTab === 'ai' && (
                             <div className="form-group">
                                 <label>Number of Questions per Bloom's Level</label>
@@ -893,7 +880,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                         )}
 
 
-                        {/* Description or Prompt */}
                         <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                             {!viewOnly && <label>{activeTab === 'ai' ? 'Prompt / Description' : 'Description'}</label>}
                             {viewOnly ? (
@@ -1012,7 +998,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                             )}
                         </div>
 
-                        {/* Massive CTA Button (View Mode Only) */}
                         {viewOnly && (
                             <button
                                 className="take-quiz-cta-massive"
@@ -1027,7 +1012,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
 
                     </div>
 
-                    {/* Right Column — Image */}
                     <div className="modal-form-right">
                         <div
                             className={`image-preview-box ${viewOnly ? 'view-only-image' : ''}`}
@@ -1051,9 +1035,7 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
                     </div>
                 </div>
 
-                {/* ── Action Buttons ── */}
-                <div className="modal-actions">
-                    {/* Trash Icon (Only when editing, moved to bottom left) */}
+               <div className="modal-actions">
                     {isAuthor && isEditing && (
                         <div className="footer-delete-wrapper">
                             <button
