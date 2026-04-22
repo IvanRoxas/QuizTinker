@@ -39,7 +39,6 @@ const QuizCard = ({ quiz, onClick }) => {
             style={cardStyle}
             onClick={() => onClick && onClick(quiz)}
         >
-            {/* Attempt Badge - Hidden for Drafts */}
             {!isDraft && (
                 <div className="quiz-attempt-badge-neo">
                     <span className="badge-count-neo">{completedAttempts}/{maxAttempts}</span>

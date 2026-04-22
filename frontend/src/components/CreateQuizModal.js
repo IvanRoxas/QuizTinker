@@ -609,7 +609,6 @@ const CreateQuizModal = ({ isOpen, onClose, quizData, onSaved }) => {
             }}
         >
             <div className="quiz-modal" onClick={(e) => e.stopPropagation()}>
-                {/* Close button */}
                 <button
                     className="modal-close-btn"
                     onClick={() => {

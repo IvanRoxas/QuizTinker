@@ -213,7 +213,6 @@ const NotificationDropdown = ({ notifications, loadingNotifs, onAccept, onReject
                         </>
                     )}
                 </div>
-                {/* Global 'See all notifications' link */}
                 <div style={{ borderTop: '1px solid #EAEAEA', textAlign: 'center', padding: '1rem', background: '#FAFAFA', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                     <a
                         href="/notifications"

@@ -9,9 +9,6 @@ export const fetchQuizzes = async (params = {}) => {
     return res.data.quizzes;
 };
 
-/**
- * Create a new quiz. Accepts a FormData object or local object.
- */
 export const createQuiz = async (data) => {
     const res = await axiosClient.post('/api/quizzes/', data, {
         headers: {
@@ -21,21 +18,15 @@ export const createQuiz = async (data) => {
     return res.data.quiz;
 };
 
-/**
- * Generate a new quiz using AI. Accepts a JSON object.
- */
 export const aiGenerateQuiz = async (data) => {
     const res = await axiosClient.post('/api/quizzes/ai-generate/', data, {
         headers: {
             'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
         },
     });
-    return res.data; // Will return { id: quiz_id, questions: [...] } based on spec
+    return res.data; 
 };
 
-/**
- * Update an existing quiz.  Accepts a FormData object (PATCH-style partial update).
- */
 export const updateQuiz = async (quizId, data) => {
     const res = await axiosClient.put(`/api/quizzes/${quizId}/`, data, {
         headers: {
@@ -45,15 +36,10 @@ export const updateQuiz = async (quizId, data) => {
     return res.data.quiz;
 };
 
-/**
- * Delete a quiz by ID.
- */
 export const deleteQuiz = async (quizId) => {
     const res = await axiosClient.delete(`/api/quizzes/${quizId}/`);
     return res.data;
 };
-
-// --- New Endpoints for ManageQuizContentPage ---
 
 export const fetchQuiz = async (quizId) => {
     const res = await axiosClient.get(`/api/quizzes/${quizId}/`);
@@ -61,9 +47,6 @@ export const fetchQuiz = async (quizId) => {
 };
 
 export const autoSaveQuiz = async (quizId, data) => {
-    // We send a JSON payload for autosave to be fast, or FormData if needed.
-    // Assuming simple JSON is fine since we just save title/desc/settings.
-    // If we need multipart, we'd use formData. The backend accepts both.
     const res = await axiosClient.put(`/api/quizzes/${quizId}/`, data, {
         headers: {
             'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
@@ -77,7 +60,6 @@ export const unpublishQuiz = async (quizId) => {
     return res.data;
 };
 
-// --- QuizItem Endpoints ---
 
 export const createQuizItem = async (quizId, formData) => {
     const res = await axiosClient.post(`/api/quizzes/${quizId}/items/`, formData, {

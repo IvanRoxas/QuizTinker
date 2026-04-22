@@ -256,10 +256,8 @@ const Auth = () => {
             <main className="auth-main">
                 <div className="auth-mesh-bg"></div>
 
-                {/* ── OTP Step ─────────────────────────────────────────── */}
                 {otpStep ? (
                     <div className={`auth-card login-mode`}>
-                        {/* Left: OTP form */}
                         <div className="auth-section left">
                             <div className="auth-form-container">
                                 <h1 className="auth-title" style={{ fontSize: '1.6rem', marginBottom: '6px' }}>
@@ -305,8 +303,7 @@ const Auth = () => {
                                     </button>
                                 </form>
 
-                                {/* Resend + Cancel */}
-                                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                                 <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
                                     <button
                                         onClick={handleResendOtp}
                                         disabled={otpResendCooldown > 0}
@@ -346,7 +343,6 @@ const Auth = () => {
                             </div>
                         </div>
 
-                        {/* Right: info panel (mirrors login-mode style) */}
                         <div className="auth-section right">
                             <div className="auth-info-panel blue-panel" style={{
                                 display: 'flex',
@@ -359,9 +355,7 @@ const Auth = () => {
                         </div>
                     </div>
                 ) : (
-                    /* ── Normal Login / Register ───────────────────────── */
                     <div className={`auth-card ${isLogin ? 'login-mode' : 'register-mode'}`}>
-                        {/* Left Section */}
                         <div className="auth-section left">
                             {isLogin ? (
                                 <div className="auth-form-container">
@@ -376,8 +370,7 @@ const Auth = () => {
                                                 onChange={handleInputChange}
                                                 required
                                             />
-                                            {/* errors.email is remapped to errors.general for login; no inline display needed here */}
-                                        </div>
+                                            </div>
 
                                         <div className="input-group">
                                             <div className="password-input-wrapper">
@@ -432,7 +425,6 @@ const Auth = () => {
                             )}
                         </div>
 
-                        {/* Right Section */}
                         <div className="auth-section right">
                             {isLogin ? (
                                 <div className="auth-info-panel blue-panel">

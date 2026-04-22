@@ -1,8 +1,3 @@
-/*
-    DJANGO Admin styles
-*/
-
-/* VARIABLE DEFINITIONS */
 html[data-theme="light"],
 :root {
     --primary: #79aec8;
@@ -798,11 +793,11 @@ div.breadcrumbs a:focus, div.breadcrumbs a:hover {
 }
 
 a.deletelink:link, a.deletelink:visited {
-    color: #CC3434; /* XXX Probably unused? */
+    color: #CC3434;
 }
 
 a.deletelink:focus, a.deletelink:hover {
-    color: #993333; /* XXX Probably unused? */
+    color: #993333;
     text-decoration: none;
 }
 

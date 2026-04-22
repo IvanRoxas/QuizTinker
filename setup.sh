@@ -16,6 +16,8 @@ read -s -p "Enter your DB Password: " DB_PASSWORD
 echo ""
 read -p "Enter your IAM Access Key for S3: " AWS_ACCESS_KEY
 read -s -p "Enter your IAM Secret Key for S3: " AWS_SECRET_KEY
+read -p "Enter your S3 Bucket Name [default: quiztinker-media]: " S3_BUCKET_NAME
+S3_BUCKET_NAME=${S3_BUCKET_NAME:-quiztinker-media}
 echo ""
 read -p "Enter your Email Host User (e.g. danielespela251@gmail.com): " EMAIL_HOST_USER
 read -s -p "Enter your Email App Password: " EMAIL_HOST_PASSWORD
@@ -80,7 +82,7 @@ DATABASE_URL=postgres://postgres:$DB_PASSWORD@$RDS_ENDPOINT:5432/postgres
 Q_WORKERS=1
 
 # AWS S3 (Media)
-AWS_STORAGE_BUCKET_NAME=quiztinker-media-bucket
+AWS_STORAGE_BUCKET_NAME=$S3_BUCKET_NAME
 AWS_S3_REGION_NAME=ap-southeast-2
 AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
